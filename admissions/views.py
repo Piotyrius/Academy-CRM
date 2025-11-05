@@ -4,7 +4,7 @@ Views for admissions app.
 from rest_framework import viewsets, status, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from django.db import transaction
+from django.db import transaction, models
 from django.utils import timezone
 from accounts.models import Role
 from .models import Application, Enrollment, ApplicationStatus, EnrollmentStatus
@@ -154,3 +154,73 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
         
         serializer = self.get_serializer(enrollment)
         return Response(serializer.data)
+    
+    @action(detail=False, methods=['get'])
+    def waitlist(self, request):
+        """Get waitlisted enrollments (pending enrollments for full cohorts)."""
+        # Only admins can see waitlist
+        if not request.user.is_admin:
+            return Response(
+                {'error': 'Only admins can view waitlist'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Get pending enrollments for full cohorts
+        from catalog.models import Cohort
+        full_cohort_ids = Cohort.objects.annotate(
+            enrollment_count=models.Count('enrollments', filter=models.Q(enrollments__status='ACTIVE'))
+        ).filter(
+            models.Q(enrollment_count__gte=models.F('capacity'))
+        ).values_list('id', flat=True)
+        
+        waitlist_enrollments = self.queryset.filter(
+            status=EnrollmentStatus.PENDING,
+            cohort_id__in=full_cohort_ids
+        )
+        
+        serializer = self.get_serializer(waitlist_enrollments, many=True)
+        return Response({
+            'count': waitlist_enrollments.count(),
+            'enrollments': serializer.data
+        })
+    
+    @action(detail=False, methods=['post'])
+    def bulk_activate(self, request):
+        """Bulk activate enrollments (admin only)."""
+        if not request.user.is_admin:
+            return Response(
+                {'error': 'Only admins can bulk activate enrollments'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        enrollment_ids = request.data.get('enrollment_ids', [])
+        if not enrollment_ids:
+            return Response(
+                {'error': 'enrollment_ids is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        enrollments = self.queryset.filter(
+            id__in=enrollment_ids,
+            status=EnrollmentStatus.PENDING
+        )
+        
+        activated = []
+        errors = []
+        
+        with transaction.atomic():
+            for enrollment in enrollments:
+                if enrollment.cohort.is_full:
+                    errors.append(f"Enrollment {enrollment.id}: Cohort is full")
+                    continue
+                
+                enrollment.status = EnrollmentStatus.ACTIVE
+                enrollment.save()
+                serializer = self.get_serializer(enrollment)
+                activated.append(serializer.data)
+        
+        return Response({
+            'activated': len(activated),
+            'enrollments': activated,
+            'errors': errors
+        })

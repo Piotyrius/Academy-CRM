@@ -129,3 +129,42 @@ class CertificateViewSet(viewsets.ModelViewSet):
         })
         
         return Response(serializer.data)
+    
+    @action(detail=False, methods=['get'], url_path='eligibility/(?P<student_id>[^/.]+)/(?P<cohort_id>[^/.]+)')
+    def eligibility(self, request, student_id=None, cohort_id=None):
+        """Check certificate eligibility for a student in a cohort."""
+        try:
+            from accounts.models import User, Role
+            from catalog.models import Cohort
+            student = User.objects.get(id=student_id, role=Role.STUDENT)
+            cohort = Cohort.objects.get(id=cohort_id)
+        except User.DoesNotExist:
+            return Response(
+                {'error': 'Student not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Cohort.DoesNotExist:
+            return Response(
+                {'error': 'Cohort not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Check permission
+        if not request.user.is_admin and not (request.user.is_lecturer and cohort.lecturer == request.user):
+            # Students can only check their own eligibility
+            if not (request.user.is_student and student == request.user):
+                return Response(
+                    {'error': 'Permission denied'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+        
+        is_eligible, details = CertificateService.check_eligibility(student, cohort)
+        
+        return Response({
+            'student_id': str(student.id),
+            'student_name': student.get_full_name(),
+            'cohort_id': str(cohort.id),
+            'cohort_name': cohort.name,
+            'eligible': is_eligible,
+            'details': details
+        })

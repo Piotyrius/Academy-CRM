@@ -85,10 +85,13 @@ TEMPLATES = [
 WSGI_APPLICATION = 'academy_crm.wsgi.application'
 
 # Database
-# Use SQLite for development if PostgreSQL is not available
+# PostgreSQL is required for production. SQLite is only for emergency development.
 USE_SQLITE = os.getenv('USE_SQLITE', 'False').lower() == 'true'
 
 if USE_SQLITE:
+    # SQLite fallback - ONLY for development when PostgreSQL is unavailable
+    # WARNING: SQLite has limitations (no UUID support, concurrent writes, etc.)
+    # Use PostgreSQL for production and recommended for development
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
@@ -96,6 +99,7 @@ if USE_SQLITE:
         }
     }
 else:
+    # PostgreSQL - Recommended and required for production
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
@@ -104,6 +108,9 @@ else:
             'PASSWORD': os.getenv('DB_PASSWORD', 'postgres'),
             'HOST': os.getenv('DB_HOST', 'localhost'),
             'PORT': os.getenv('DB_PORT', '5432'),
+            'OPTIONS': {
+                'connect_timeout': 10,
+            },
         }
     }
 

@@ -121,3 +121,44 @@ class SessionViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(start_at__date__lte=date_to)
         
         return queryset
+
+
+class LecturerViewSet(viewsets.ViewSet):
+    """ViewSet for lecturer-specific endpoints."""
+    permission_classes = [IsAuthenticated]
+    
+    @action(detail=False, methods=['get'])
+    def cohorts(self, request):
+        """Get lecturer's own cohorts."""
+        if not request.user.is_lecturer:
+            return Response(
+                {'error': 'Only lecturers can access this endpoint'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        cohorts = Cohort.objects.filter(lecturer=request.user)
+        serializer = CohortSerializer(cohorts, many=True, context={'request': request})
+        return Response(serializer.data)
+    
+    @action(detail=False, methods=['get'])
+    def sessions(self, request):
+        """Get lecturer's own sessions."""
+        if not request.user.is_lecturer:
+            return Response(
+                {'error': 'Only lecturers can access this endpoint'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        sessions = Session.objects.filter(cohort__lecturer=request.user)
+        
+        # Filter by date range
+        date_from = request.query_params.get('date_from')
+        date_to = request.query_params.get('date_to')
+        
+        if date_from:
+            sessions = sessions.filter(start_at__date__gte=date_from)
+        if date_to:
+            sessions = sessions.filter(start_at__date__lte=date_to)
+        
+        serializer = SessionSerializer(sessions, many=True, context={'request': request})
+        return Response(serializer.data)
