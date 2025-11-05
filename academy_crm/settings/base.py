@@ -85,34 +85,20 @@ TEMPLATES = [
 WSGI_APPLICATION = 'academy_crm.wsgi.application'
 
 # Database
-# PostgreSQL is required for production. SQLite is only for emergency development.
-USE_SQLITE = os.getenv('USE_SQLITE', 'False').lower() == 'true'
-
-if USE_SQLITE:
-    # SQLite fallback - ONLY for development when PostgreSQL is unavailable
-    # WARNING: SQLite has limitations (no UUID support, concurrent writes, etc.)
-    # Use PostgreSQL for production and recommended for development
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
-        }
+# PostgreSQL is required - UUID primary keys require PostgreSQL
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': os.getenv('DB_NAME', 'academy_crm'),
+        'USER': os.getenv('DB_USER', 'postgres'),
+        'PASSWORD': os.getenv('DB_PASSWORD', 'postgres'),
+        'HOST': os.getenv('DB_HOST', 'localhost'),
+        'PORT': os.getenv('DB_PORT', '5432'),
+        'OPTIONS': {
+            'connect_timeout': 10,
+        },
     }
-else:
-    # PostgreSQL - Recommended and required for production
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': os.getenv('DB_NAME', 'academy_crm'),
-            'USER': os.getenv('DB_USER', 'postgres'),
-            'PASSWORD': os.getenv('DB_PASSWORD', 'postgres'),
-            'HOST': os.getenv('DB_HOST', 'localhost'),
-            'PORT': os.getenv('DB_PORT', '5432'),
-            'OPTIONS': {
-                'connect_timeout': 10,
-            },
-        }
-    }
+}
 
 # Custom User Model
 AUTH_USER_MODEL = 'accounts.User'
