@@ -49,6 +49,8 @@ INSTALLED_APPS = [
     'notifications',
     'reporting',
     'ops',
+    'timekeeping',
+    'gallery',
 ]
 
 MIDDLEWARE = [

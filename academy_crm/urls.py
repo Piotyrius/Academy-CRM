@@ -29,6 +29,8 @@ urlpatterns = [
     path('api/v1/', include('certificates.urls')),
     path('api/v1/', include('documents.urls')),
     path('api/v1/', include('reporting.urls')),
+    path('api/v1/', include('timekeeping.urls')),
+    path('api/v1/', include('gallery.urls')),
 ]
 
 # Serve media files in development
