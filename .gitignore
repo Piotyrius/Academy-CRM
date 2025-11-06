@@ -36,17 +36,26 @@ local_settings.py
 # Environment variables
 .env
 .env.local
+.env.*.local
 
-# IDE
+# IDE - VSCode/Cursor
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
+*.code-workspace
+.history/
+*.history
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
 
 # OS
 .DS_Store
 Thumbs.db
+desktop.ini
 
 # Docker
 .dockerignore
@@ -55,7 +64,62 @@ Thumbs.db
 .coverage
 htmlcov/
 .pytest_cache/
+.tox/
+.hypothesis/
 
 # Celery
 celerybeat-schedule
 celerybeat.pid
+
+# Database
+# Temporary SQL setup scripts (not needed in repo)
+*.sql
+!**/migrations/*.sql
+
+# Temporary setup/test scripts
+test_*.py
+update_*.py
+setup_*.ps1
+setup_*.py
+
+# Temporary documentation files (setup guides, troubleshooting)
+*_SETUP.md
+*_SETUP_*.md
+SETUP_*.md
+QUICK_*.md
+*_FIX.md
+*_PASSWORD*.md
+RESET_*.md
+UPDATE_*.md
+INSTALL_*.md
+LOCAL_*.md
+CREATE_*.md
+POSTGRES_*.md
+DATABASE_*.md
+
+# Keep important docs
+!README.md
+!DEPLOYMENT_GUIDE.md
+!API_ANALYSIS.md
+!ENDPOINT_RECOMMENDATIONS.md
+!NEW_ENDPOINTS.md
+!SETUP_CHECKLIST.md
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# pyenv
+.python-version
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# Backup files
+*.bak
+*.backup
+*~
