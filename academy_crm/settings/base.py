@@ -191,6 +191,7 @@ SIMPLE_JWT = {
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://localhost:8000",
+    "http://localhost:8080",
 ]
 
 # Redis Cache (fallback to dummy cache if Redis is not available)
