@@ -1,4 +1,5 @@
 from django.utils import timezone
+from django.db.models import Q
 from rest_framework import viewsets, permissions, decorators, response, status
 from .models import Work, WorkStatus
 from .serializers import WorkSerializer
@@ -23,7 +24,7 @@ class WorkViewSet(viewsets.ModelViewSet):
         if getattr(user, 'is_admin', False):
             return qs
         # Owners see own items; others see published + permitted
-        return qs.filter(models.Q(owner=user) | models.Q(status=WorkStatus.PUBLISHED, is_public=True))
+        return qs.filter(Q(owner=user) | Q(status=WorkStatus.PUBLISHED, is_public=True))
 
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)
