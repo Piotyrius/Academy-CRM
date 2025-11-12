@@ -37,6 +37,8 @@ class UserCreateSerializer(serializers.ModelSerializer):
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     """Custom token serializer with user data."""
+    # Use email field instead of username
+    username_field = 'email'
     
     @classmethod
     def get_token(cls, user):
@@ -46,6 +48,10 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         return token
     
     def validate(self, attrs):
+        # Map 'email' to 'username' for parent validation
+        # Since USERNAME_FIELD is 'email', Django will use email as username
+        if 'email' in attrs and 'username' not in attrs:
+            attrs['username'] = attrs['email']
         data = super().validate(attrs)
         data['user'] = UserSerializer(self.user).data
         return data

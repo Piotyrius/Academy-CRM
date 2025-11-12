@@ -1,0 +1,1948 @@
+﻿============================= test session starts =============================
+platform win32 -- Python 3.11.9, pytest-8.3.3, pluggy-1.6.0 -- D:\Academy-CRM\venv\Scripts\python.exe
+cachedir: .pytest_cache
+django: version: 5.1, settings: academy_crm.settings.dev (from env)
+rootdir: D:\Academy-CRM
+configfile: pytest.ini
+plugins: Faker-33.0.0, cov-5.0.0, django-4.8.0
+collecting ... collected 43 items
+
+accounts/tests.py::TestUserModel::test_create_user ERROR                 [  2%]
+accounts/tests.py::TestUserModel::test_create_superuser ERROR            [  4%]
+accounts/tests.py::TestUserModel::test_user_str ERROR                    [  6%]
+accounts/tests.py::TestUserModel::test_user_properties ERROR             [  9%]
+accounts/tests.py::TestAuthenticationAPI::test_login_success ERROR       [ 11%]
+accounts/tests.py::TestAuthenticationAPI::test_login_invalid_credentials ERROR [ 13%]
+accounts/tests.py::TestAuthenticationAPI::test_login_missing_fields ERROR [ 16%]
+accounts/tests.py::TestAuthenticationAPI::test_get_current_user ERROR    [ 18%]
+accounts/tests.py::TestAuthenticationAPI::test_update_current_user ERROR [ 20%]
+accounts/tests.py::TestUserManagementAPI::test_list_users_as_admin ERROR [ 23%]
+accounts/tests.py::TestUserManagementAPI::test_list_users_as_student_forbidden ERROR [ 25%]
+accounts/tests.py::TestUserManagementAPI::test_create_user_as_admin ERROR [ 27%]
+accounts/tests.py::TestUserManagementAPI::test_update_user_as_admin ERROR [ 30%]
+accounts/tests.py::TestUserManagementAPI::test_delete_user_as_admin ERROR [ 32%]
+catalog/tests.py::TestProgramAPI::test_create_program ERROR              [ 34%]
+catalog/tests.py::TestProgramAPI::test_list_programs ERROR               [ 37%]
+catalog/tests.py::TestProgramAPI::test_get_program ERROR                 [ 39%]
+catalog/tests.py::TestProgramAPI::test_update_program ERROR              [ 41%]
+catalog/tests.py::TestProgramAPI::test_delete_program ERROR              [ 44%]
+catalog/tests.py::TestProgramAPI::test_search_programs ERROR             [ 46%]
+catalog/tests.py::TestCourseAPI::test_create_course ERROR                [ 48%]
+catalog/tests.py::TestCourseAPI::test_list_courses ERROR                 [ 51%]
+catalog/tests.py::TestCourseAPI::test_filter_courses_by_program ERROR    [ 53%]
+catalog/tests.py::TestCohortAPI::test_create_cohort ERROR                [ 55%]
+catalog/tests.py::TestCohortAPI::test_list_cohorts ERROR                 [ 58%]
+catalog/tests.py::TestCohortAPI::test_lecturer_sees_only_own_cohorts ERROR [ 60%]
+catalog/tests.py::TestCohortAPI::test_generate_sessions ERROR            [ 62%]
+catalog/tests.py::TestSessionAPI::test_create_session ERROR              [ 65%]
+catalog/tests.py::TestSessionAPI::test_list_sessions ERROR               [ 67%]
+catalog/tests.py::TestSessionAPI::test_filter_sessions_by_cohort ERROR   [ 69%]
+catalog/tests.py::TestSessionAPI::test_cancel_session ERROR              [ 72%]
+admissions/tests.py::TestApplicationAPI::test_create_application ERROR   [ 74%]
+admissions/tests.py::TestApplicationAPI::test_list_applications ERROR    [ 76%]
+admissions/tests.py::TestApplicationAPI::test_accept_application ERROR   [ 79%]
+admissions/tests.py::TestEnrollmentAPI::test_create_enrollment ERROR     [ 81%]
+admissions/tests.py::TestEnrollmentAPI::test_activate_enrollment ERROR   [ 83%]
+attendance/tests.py::TestAttendanceAPI::test_create_attendance_record ERROR [ 86%]
+attendance/tests.py::TestAttendanceAPI::test_list_attendance_records ERROR [ 88%]
+attendance/tests.py::TestAttendanceAPI::test_update_attendance_status ERROR [ 90%]
+assessment/tests.py::TestAssessmentAPI::test_create_assessment ERROR     [ 93%]
+assessment/tests.py::TestAssessmentAPI::test_list_assessments ERROR      [ 95%]
+assessment/tests.py::TestSubmissionAPI::test_create_submission ERROR     [ 97%]
+assessment/tests.py::TestGradeAPI::test_create_grade ERROR               [100%]
+
+=================================== ERRORS ====================================
+______________ ERROR at setup of TestUserModel.test_create_user _______________
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   psycopg2.errors.UndefinedTable: relation "users" does not exist
+
+The above exception was the direct cause of the following exception:
+venv\Lib\site-packages\pytest_django\plugin.py:532: in _django_db_marker
+    request.getfixturevalue("_django_db_helper")
+venv\Lib\site-packages\pytest_django\fixtures.py:139: in django_db_setup
+    db_cfg = setup_databases(
+venv\Lib\site-packages\django\test\utils.py:206: in setup_databases
+    connection.creation.create_test_db(
+venv\Lib\site-packages\django\db\backends\base\creation.py:78: in create_test_db
+    call_command(
+venv\Lib\site-packages\django\core\management\__init__.py:194: in call_command
+    return command.execute(*args, **defaults)
+venv\Lib\site-packages\django\core\management\base.py:459: in execute
+    output = self.handle(*args, **options)
+venv\Lib\site-packages\django\core\management\base.py:107: in wrapper
+    res = handle_func(*args, **kwargs)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:322: in handle
+    self.sync_apps(connection, executor.loader.unmigrated_apps)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:469: in sync_apps
+    with connection.schema_editor() as editor:
+venv\Lib\site-packages\django\db\backends\base\schema.py:167: in __exit__
+    self.execute(sql, None)
+venv\Lib\site-packages\django\db\backends\postgresql\schema.py:45: in execute
+    return super().execute(sql, params)
+venv\Lib\site-packages\django\db\backends\base\schema.py:202: in execute
+    cursor.execute(sql, params)
+venv\Lib\site-packages\django\db\backends\utils.py:79: in execute
+    return self._execute_with_wrappers(
+venv\Lib\site-packages\django\db\backends\utils.py:92: in _execute_with_wrappers
+    return executor(sql, params, many, context)
+venv\Lib\site-packages\django\db\backends\utils.py:100: in _execute
+    with self.db.wrap_database_errors:
+venv\Lib\site-packages\django\db\utils.py:91: in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   django.db.utils.ProgrammingError: relation "users" does not exist
+---------------------------- Captured stdout setup ----------------------------
+Operations to perform:
+  Synchronize unmigrated apps: cache, corsheaders, debug_toolbar, django_filters, drf_spectacular, gallery, health_check, import_export, messages, rest_framework, rest_framework_simplejwt, simple_history, staticfiles, storage, timekeeping
+  Apply all migrations: accounts, admin, admissions, assessment, attendance, auth, axes, catalog, certificates, contenttypes, db, documents, guardian, notifications, sessions
+Synchronizing apps without migrations:
+  Creating tables...
+    Creating table tk_rates
+    Creating table tk_worklogs
+    Creating table tk_timesheets
+    Creating table gallery_works
+    Running deferred SQL...
+---------------------------- Captured stderr setup ----------------------------
+Creating test database for alias 'default' ('test_academy_crm')...
+
+____________ ERROR at setup of TestUserModel.test_create_superuser ____________
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   psycopg2.errors.UndefinedTable: relation "users" does not exist
+
+The above exception was the direct cause of the following exception:
+venv\Lib\site-packages\pytest_django\plugin.py:532: in _django_db_marker
+    request.getfixturevalue("_django_db_helper")
+venv\Lib\site-packages\pytest_django\fixtures.py:139: in django_db_setup
+    db_cfg = setup_databases(
+venv\Lib\site-packages\django\test\utils.py:206: in setup_databases
+    connection.creation.create_test_db(
+venv\Lib\site-packages\django\db\backends\base\creation.py:78: in create_test_db
+    call_command(
+venv\Lib\site-packages\django\core\management\__init__.py:194: in call_command
+    return command.execute(*args, **defaults)
+venv\Lib\site-packages\django\core\management\base.py:459: in execute
+    output = self.handle(*args, **options)
+venv\Lib\site-packages\django\core\management\base.py:107: in wrapper
+    res = handle_func(*args, **kwargs)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:322: in handle
+    self.sync_apps(connection, executor.loader.unmigrated_apps)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:469: in sync_apps
+    with connection.schema_editor() as editor:
+venv\Lib\site-packages\django\db\backends\base\schema.py:167: in __exit__
+    self.execute(sql, None)
+venv\Lib\site-packages\django\db\backends\postgresql\schema.py:45: in execute
+    return super().execute(sql, params)
+venv\Lib\site-packages\django\db\backends\base\schema.py:202: in execute
+    cursor.execute(sql, params)
+venv\Lib\site-packages\django\db\backends\utils.py:79: in execute
+    return self._execute_with_wrappers(
+venv\Lib\site-packages\django\db\backends\utils.py:92: in _execute_with_wrappers
+    return executor(sql, params, many, context)
+venv\Lib\site-packages\django\db\backends\utils.py:100: in _execute
+    with self.db.wrap_database_errors:
+venv\Lib\site-packages\django\db\utils.py:91: in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   django.db.utils.ProgrammingError: relation "users" does not exist
+________________ ERROR at setup of TestUserModel.test_user_str ________________
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   psycopg2.errors.UndefinedTable: relation "users" does not exist
+
+The above exception was the direct cause of the following exception:
+venv\Lib\site-packages\pytest_django\plugin.py:532: in _django_db_marker
+    request.getfixturevalue("_django_db_helper")
+venv\Lib\site-packages\pytest_django\fixtures.py:139: in django_db_setup
+    db_cfg = setup_databases(
+venv\Lib\site-packages\django\test\utils.py:206: in setup_databases
+    connection.creation.create_test_db(
+venv\Lib\site-packages\django\db\backends\base\creation.py:78: in create_test_db
+    call_command(
+venv\Lib\site-packages\django\core\management\__init__.py:194: in call_command
+    return command.execute(*args, **defaults)
+venv\Lib\site-packages\django\core\management\base.py:459: in execute
+    output = self.handle(*args, **options)
+venv\Lib\site-packages\django\core\management\base.py:107: in wrapper
+    res = handle_func(*args, **kwargs)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:322: in handle
+    self.sync_apps(connection, executor.loader.unmigrated_apps)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:469: in sync_apps
+    with connection.schema_editor() as editor:
+venv\Lib\site-packages\django\db\backends\base\schema.py:167: in __exit__
+    self.execute(sql, None)
+venv\Lib\site-packages\django\db\backends\postgresql\schema.py:45: in execute
+    return super().execute(sql, params)
+venv\Lib\site-packages\django\db\backends\base\schema.py:202: in execute
+    cursor.execute(sql, params)
+venv\Lib\site-packages\django\db\backends\utils.py:79: in execute
+    return self._execute_with_wrappers(
+venv\Lib\site-packages\django\db\backends\utils.py:92: in _execute_with_wrappers
+    return executor(sql, params, many, context)
+venv\Lib\site-packages\django\db\backends\utils.py:100: in _execute
+    with self.db.wrap_database_errors:
+venv\Lib\site-packages\django\db\utils.py:91: in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   django.db.utils.ProgrammingError: relation "users" does not exist
+____________ ERROR at setup of TestUserModel.test_user_properties _____________
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   psycopg2.errors.UndefinedTable: relation "users" does not exist
+
+The above exception was the direct cause of the following exception:
+venv\Lib\site-packages\pytest_django\plugin.py:532: in _django_db_marker
+    request.getfixturevalue("_django_db_helper")
+venv\Lib\site-packages\pytest_django\fixtures.py:139: in django_db_setup
+    db_cfg = setup_databases(
+venv\Lib\site-packages\django\test\utils.py:206: in setup_databases
+    connection.creation.create_test_db(
+venv\Lib\site-packages\django\db\backends\base\creation.py:78: in create_test_db
+    call_command(
+venv\Lib\site-packages\django\core\management\__init__.py:194: in call_command
+    return command.execute(*args, **defaults)
+venv\Lib\site-packages\django\core\management\base.py:459: in execute
+    output = self.handle(*args, **options)
+venv\Lib\site-packages\django\core\management\base.py:107: in wrapper
+    res = handle_func(*args, **kwargs)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:322: in handle
+    self.sync_apps(connection, executor.loader.unmigrated_apps)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:469: in sync_apps
+    with connection.schema_editor() as editor:
+venv\Lib\site-packages\django\db\backends\base\schema.py:167: in __exit__
+    self.execute(sql, None)
+venv\Lib\site-packages\django\db\backends\postgresql\schema.py:45: in execute
+    return super().execute(sql, params)
+venv\Lib\site-packages\django\db\backends\base\schema.py:202: in execute
+    cursor.execute(sql, params)
+venv\Lib\site-packages\django\db\backends\utils.py:79: in execute
+    return self._execute_with_wrappers(
+venv\Lib\site-packages\django\db\backends\utils.py:92: in _execute_with_wrappers
+    return executor(sql, params, many, context)
+venv\Lib\site-packages\django\db\backends\utils.py:100: in _execute
+    with self.db.wrap_database_errors:
+venv\Lib\site-packages\django\db\utils.py:91: in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   django.db.utils.ProgrammingError: relation "users" does not exist
+_________ ERROR at setup of TestAuthenticationAPI.test_login_success __________
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   psycopg2.errors.UndefinedTable: relation "users" does not exist
+
+The above exception was the direct cause of the following exception:
+venv\Lib\site-packages\pytest_django\fixtures.py:139: in django_db_setup
+    db_cfg = setup_databases(
+venv\Lib\site-packages\django\test\utils.py:206: in setup_databases
+    connection.creation.create_test_db(
+venv\Lib\site-packages\django\db\backends\base\creation.py:78: in create_test_db
+    call_command(
+venv\Lib\site-packages\django\core\management\__init__.py:194: in call_command
+    return command.execute(*args, **defaults)
+venv\Lib\site-packages\django\core\management\base.py:459: in execute
+    output = self.handle(*args, **options)
+venv\Lib\site-packages\django\core\management\base.py:107: in wrapper
+    res = handle_func(*args, **kwargs)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:322: in handle
+    self.sync_apps(connection, executor.loader.unmigrated_apps)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:469: in sync_apps
+    with connection.schema_editor() as editor:
+venv\Lib\site-packages\django\db\backends\base\schema.py:167: in __exit__
+    self.execute(sql, None)
+venv\Lib\site-packages\django\db\backends\postgresql\schema.py:45: in execute
+    return super().execute(sql, params)
+venv\Lib\site-packages\django\db\backends\base\schema.py:202: in execute
+    cursor.execute(sql, params)
+venv\Lib\site-packages\django\db\backends\utils.py:79: in execute
+    return self._execute_with_wrappers(
+venv\Lib\site-packages\django\db\backends\utils.py:92: in _execute_with_wrappers
+    return executor(sql, params, many, context)
+venv\Lib\site-packages\django\db\backends\utils.py:100: in _execute
+    with self.db.wrap_database_errors:
+venv\Lib\site-packages\django\db\utils.py:91: in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   django.db.utils.ProgrammingError: relation "users" does not exist
+___ ERROR at setup of TestAuthenticationAPI.test_login_invalid_credentials ____
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   psycopg2.errors.UndefinedTable: relation "users" does not exist
+
+The above exception was the direct cause of the following exception:
+venv\Lib\site-packages\pytest_django\plugin.py:532: in _django_db_marker
+    request.getfixturevalue("_django_db_helper")
+venv\Lib\site-packages\pytest_django\fixtures.py:139: in django_db_setup
+    db_cfg = setup_databases(
+venv\Lib\site-packages\django\test\utils.py:206: in setup_databases
+    connection.creation.create_test_db(
+venv\Lib\site-packages\django\db\backends\base\creation.py:78: in create_test_db
+    call_command(
+venv\Lib\site-packages\django\core\management\__init__.py:194: in call_command
+    return command.execute(*args, **defaults)
+venv\Lib\site-packages\django\core\management\base.py:459: in execute
+    output = self.handle(*args, **options)
+venv\Lib\site-packages\django\core\management\base.py:107: in wrapper
+    res = handle_func(*args, **kwargs)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:322: in handle
+    self.sync_apps(connection, executor.loader.unmigrated_apps)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:469: in sync_apps
+    with connection.schema_editor() as editor:
+venv\Lib\site-packages\django\db\backends\base\schema.py:167: in __exit__
+    self.execute(sql, None)
+venv\Lib\site-packages\django\db\backends\postgresql\schema.py:45: in execute
+    return super().execute(sql, params)
+venv\Lib\site-packages\django\db\backends\base\schema.py:202: in execute
+    cursor.execute(sql, params)
+venv\Lib\site-packages\django\db\backends\utils.py:79: in execute
+    return self._execute_with_wrappers(
+venv\Lib\site-packages\django\db\backends\utils.py:92: in _execute_with_wrappers
+    return executor(sql, params, many, context)
+venv\Lib\site-packages\django\db\backends\utils.py:100: in _execute
+    with self.db.wrap_database_errors:
+venv\Lib\site-packages\django\db\utils.py:91: in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   django.db.utils.ProgrammingError: relation "users" does not exist
+______ ERROR at setup of TestAuthenticationAPI.test_login_missing_fields ______
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   psycopg2.errors.UndefinedTable: relation "users" does not exist
+
+The above exception was the direct cause of the following exception:
+venv\Lib\site-packages\pytest_django\plugin.py:532: in _django_db_marker
+    request.getfixturevalue("_django_db_helper")
+venv\Lib\site-packages\pytest_django\fixtures.py:139: in django_db_setup
+    db_cfg = setup_databases(
+venv\Lib\site-packages\django\test\utils.py:206: in setup_databases
+    connection.creation.create_test_db(
+venv\Lib\site-packages\django\db\backends\base\creation.py:78: in create_test_db
+    call_command(
+venv\Lib\site-packages\django\core\management\__init__.py:194: in call_command
+    return command.execute(*args, **defaults)
+venv\Lib\site-packages\django\core\management\base.py:459: in execute
+    output = self.handle(*args, **options)
+venv\Lib\site-packages\django\core\management\base.py:107: in wrapper
+    res = handle_func(*args, **kwargs)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:322: in handle
+    self.sync_apps(connection, executor.loader.unmigrated_apps)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:469: in sync_apps
+    with connection.schema_editor() as editor:
+venv\Lib\site-packages\django\db\backends\base\schema.py:167: in __exit__
+    self.execute(sql, None)
+venv\Lib\site-packages\django\db\backends\postgresql\schema.py:45: in execute
+    return super().execute(sql, params)
+venv\Lib\site-packages\django\db\backends\base\schema.py:202: in execute
+    cursor.execute(sql, params)
+venv\Lib\site-packages\django\db\backends\utils.py:79: in execute
+    return self._execute_with_wrappers(
+venv\Lib\site-packages\django\db\backends\utils.py:92: in _execute_with_wrappers
+    return executor(sql, params, many, context)
+venv\Lib\site-packages\django\db\backends\utils.py:100: in _execute
+    with self.db.wrap_database_errors:
+venv\Lib\site-packages\django\db\utils.py:91: in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   django.db.utils.ProgrammingError: relation "users" does not exist
+________ ERROR at setup of TestAuthenticationAPI.test_get_current_user ________
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   psycopg2.errors.UndefinedTable: relation "users" does not exist
+
+The above exception was the direct cause of the following exception:
+venv\Lib\site-packages\pytest_django\fixtures.py:139: in django_db_setup
+    db_cfg = setup_databases(
+venv\Lib\site-packages\django\test\utils.py:206: in setup_databases
+    connection.creation.create_test_db(
+venv\Lib\site-packages\django\db\backends\base\creation.py:78: in create_test_db
+    call_command(
+venv\Lib\site-packages\django\core\management\__init__.py:194: in call_command
+    return command.execute(*args, **defaults)
+venv\Lib\site-packages\django\core\management\base.py:459: in execute
+    output = self.handle(*args, **options)
+venv\Lib\site-packages\django\core\management\base.py:107: in wrapper
+    res = handle_func(*args, **kwargs)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:322: in handle
+    self.sync_apps(connection, executor.loader.unmigrated_apps)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:469: in sync_apps
+    with connection.schema_editor() as editor:
+venv\Lib\site-packages\django\db\backends\base\schema.py:167: in __exit__
+    self.execute(sql, None)
+venv\Lib\site-packages\django\db\backends\postgresql\schema.py:45: in execute
+    return super().execute(sql, params)
+venv\Lib\site-packages\django\db\backends\base\schema.py:202: in execute
+    cursor.execute(sql, params)
+venv\Lib\site-packages\django\db\backends\utils.py:79: in execute
+    return self._execute_with_wrappers(
+venv\Lib\site-packages\django\db\backends\utils.py:92: in _execute_with_wrappers
+    return executor(sql, params, many, context)
+venv\Lib\site-packages\django\db\backends\utils.py:100: in _execute
+    with self.db.wrap_database_errors:
+venv\Lib\site-packages\django\db\utils.py:91: in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   django.db.utils.ProgrammingError: relation "users" does not exist
+______ ERROR at setup of TestAuthenticationAPI.test_update_current_user _______
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   psycopg2.errors.UndefinedTable: relation "users" does not exist
+
+The above exception was the direct cause of the following exception:
+venv\Lib\site-packages\pytest_django\fixtures.py:139: in django_db_setup
+    db_cfg = setup_databases(
+venv\Lib\site-packages\django\test\utils.py:206: in setup_databases
+    connection.creation.create_test_db(
+venv\Lib\site-packages\django\db\backends\base\creation.py:78: in create_test_db
+    call_command(
+venv\Lib\site-packages\django\core\management\__init__.py:194: in call_command
+    return command.execute(*args, **defaults)
+venv\Lib\site-packages\django\core\management\base.py:459: in execute
+    output = self.handle(*args, **options)
+venv\Lib\site-packages\django\core\management\base.py:107: in wrapper
+    res = handle_func(*args, **kwargs)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:322: in handle
+    self.sync_apps(connection, executor.loader.unmigrated_apps)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:469: in sync_apps
+    with connection.schema_editor() as editor:
+venv\Lib\site-packages\django\db\backends\base\schema.py:167: in __exit__
+    self.execute(sql, None)
+venv\Lib\site-packages\django\db\backends\postgresql\schema.py:45: in execute
+    return super().execute(sql, params)
+venv\Lib\site-packages\django\db\backends\base\schema.py:202: in execute
+    cursor.execute(sql, params)
+venv\Lib\site-packages\django\db\backends\utils.py:79: in execute
+    return self._execute_with_wrappers(
+venv\Lib\site-packages\django\db\backends\utils.py:92: in _execute_with_wrappers
+    return executor(sql, params, many, context)
+venv\Lib\site-packages\django\db\backends\utils.py:100: in _execute
+    with self.db.wrap_database_errors:
+venv\Lib\site-packages\django\db\utils.py:91: in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   django.db.utils.ProgrammingError: relation "users" does not exist
+______ ERROR at setup of TestUserManagementAPI.test_list_users_as_admin _______
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   psycopg2.errors.UndefinedTable: relation "users" does not exist
+
+The above exception was the direct cause of the following exception:
+venv\Lib\site-packages\pytest_django\fixtures.py:139: in django_db_setup
+    db_cfg = setup_databases(
+venv\Lib\site-packages\django\test\utils.py:206: in setup_databases
+    connection.creation.create_test_db(
+venv\Lib\site-packages\django\db\backends\base\creation.py:78: in create_test_db
+    call_command(
+venv\Lib\site-packages\django\core\management\__init__.py:194: in call_command
+    return command.execute(*args, **defaults)
+venv\Lib\site-packages\django\core\management\base.py:459: in execute
+    output = self.handle(*args, **options)
+venv\Lib\site-packages\django\core\management\base.py:107: in wrapper
+    res = handle_func(*args, **kwargs)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:322: in handle
+    self.sync_apps(connection, executor.loader.unmigrated_apps)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:469: in sync_apps
+    with connection.schema_editor() as editor:
+venv\Lib\site-packages\django\db\backends\base\schema.py:167: in __exit__
+    self.execute(sql, None)
+venv\Lib\site-packages\django\db\backends\postgresql\schema.py:45: in execute
+    return super().execute(sql, params)
+venv\Lib\site-packages\django\db\backends\base\schema.py:202: in execute
+    cursor.execute(sql, params)
+venv\Lib\site-packages\django\db\backends\utils.py:79: in execute
+    return self._execute_with_wrappers(
+venv\Lib\site-packages\django\db\backends\utils.py:92: in _execute_with_wrappers
+    return executor(sql, params, many, context)
+venv\Lib\site-packages\django\db\backends\utils.py:100: in _execute
+    with self.db.wrap_database_errors:
+venv\Lib\site-packages\django\db\utils.py:91: in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   django.db.utils.ProgrammingError: relation "users" does not exist
+_ ERROR at setup of TestUserManagementAPI.test_list_users_as_student_forbidden _
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   psycopg2.errors.UndefinedTable: relation "users" does not exist
+
+The above exception was the direct cause of the following exception:
+venv\Lib\site-packages\pytest_django\fixtures.py:139: in django_db_setup
+    db_cfg = setup_databases(
+venv\Lib\site-packages\django\test\utils.py:206: in setup_databases
+    connection.creation.create_test_db(
+venv\Lib\site-packages\django\db\backends\base\creation.py:78: in create_test_db
+    call_command(
+venv\Lib\site-packages\django\core\management\__init__.py:194: in call_command
+    return command.execute(*args, **defaults)
+venv\Lib\site-packages\django\core\management\base.py:459: in execute
+    output = self.handle(*args, **options)
+venv\Lib\site-packages\django\core\management\base.py:107: in wrapper
+    res = handle_func(*args, **kwargs)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:322: in handle
+    self.sync_apps(connection, executor.loader.unmigrated_apps)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:469: in sync_apps
+    with connection.schema_editor() as editor:
+venv\Lib\site-packages\django\db\backends\base\schema.py:167: in __exit__
+    self.execute(sql, None)
+venv\Lib\site-packages\django\db\backends\postgresql\schema.py:45: in execute
+    return super().execute(sql, params)
+venv\Lib\site-packages\django\db\backends\base\schema.py:202: in execute
+    cursor.execute(sql, params)
+venv\Lib\site-packages\django\db\backends\utils.py:79: in execute
+    return self._execute_with_wrappers(
+venv\Lib\site-packages\django\db\backends\utils.py:92: in _execute_with_wrappers
+    return executor(sql, params, many, context)
+venv\Lib\site-packages\django\db\backends\utils.py:100: in _execute
+    with self.db.wrap_database_errors:
+venv\Lib\site-packages\django\db\utils.py:91: in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   django.db.utils.ProgrammingError: relation "users" does not exist
+______ ERROR at setup of TestUserManagementAPI.test_create_user_as_admin ______
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   psycopg2.errors.UndefinedTable: relation "users" does not exist
+
+The above exception was the direct cause of the following exception:
+venv\Lib\site-packages\pytest_django\fixtures.py:139: in django_db_setup
+    db_cfg = setup_databases(
+venv\Lib\site-packages\django\test\utils.py:206: in setup_databases
+    connection.creation.create_test_db(
+venv\Lib\site-packages\django\db\backends\base\creation.py:78: in create_test_db
+    call_command(
+venv\Lib\site-packages\django\core\management\__init__.py:194: in call_command
+    return command.execute(*args, **defaults)
+venv\Lib\site-packages\django\core\management\base.py:459: in execute
+    output = self.handle(*args, **options)
+venv\Lib\site-packages\django\core\management\base.py:107: in wrapper
+    res = handle_func(*args, **kwargs)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:322: in handle
+    self.sync_apps(connection, executor.loader.unmigrated_apps)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:469: in sync_apps
+    with connection.schema_editor() as editor:
+venv\Lib\site-packages\django\db\backends\base\schema.py:167: in __exit__
+    self.execute(sql, None)
+venv\Lib\site-packages\django\db\backends\postgresql\schema.py:45: in execute
+    return super().execute(sql, params)
+venv\Lib\site-packages\django\db\backends\base\schema.py:202: in execute
+    cursor.execute(sql, params)
+venv\Lib\site-packages\django\db\backends\utils.py:79: in execute
+    return self._execute_with_wrappers(
+venv\Lib\site-packages\django\db\backends\utils.py:92: in _execute_with_wrappers
+    return executor(sql, params, many, context)
+venv\Lib\site-packages\django\db\backends\utils.py:100: in _execute
+    with self.db.wrap_database_errors:
+venv\Lib\site-packages\django\db\utils.py:91: in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   django.db.utils.ProgrammingError: relation "users" does not exist
+______ ERROR at setup of TestUserManagementAPI.test_update_user_as_admin ______
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   psycopg2.errors.UndefinedTable: relation "users" does not exist
+
+The above exception was the direct cause of the following exception:
+venv\Lib\site-packages\pytest_django\fixtures.py:139: in django_db_setup
+    db_cfg = setup_databases(
+venv\Lib\site-packages\django\test\utils.py:206: in setup_databases
+    connection.creation.create_test_db(
+venv\Lib\site-packages\django\db\backends\base\creation.py:78: in create_test_db
+    call_command(
+venv\Lib\site-packages\django\core\management\__init__.py:194: in call_command
+    return command.execute(*args, **defaults)
+venv\Lib\site-packages\django\core\management\base.py:459: in execute
+    output = self.handle(*args, **options)
+venv\Lib\site-packages\django\core\management\base.py:107: in wrapper
+    res = handle_func(*args, **kwargs)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:322: in handle
+    self.sync_apps(connection, executor.loader.unmigrated_apps)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:469: in sync_apps
+    with connection.schema_editor() as editor:
+venv\Lib\site-packages\django\db\backends\base\schema.py:167: in __exit__
+    self.execute(sql, None)
+venv\Lib\site-packages\django\db\backends\postgresql\schema.py:45: in execute
+    return super().execute(sql, params)
+venv\Lib\site-packages\django\db\backends\base\schema.py:202: in execute
+    cursor.execute(sql, params)
+venv\Lib\site-packages\django\db\backends\utils.py:79: in execute
+    return self._execute_with_wrappers(
+venv\Lib\site-packages\django\db\backends\utils.py:92: in _execute_with_wrappers
+    return executor(sql, params, many, context)
+venv\Lib\site-packages\django\db\backends\utils.py:100: in _execute
+    with self.db.wrap_database_errors:
+venv\Lib\site-packages\django\db\utils.py:91: in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   django.db.utils.ProgrammingError: relation "users" does not exist
+______ ERROR at setup of TestUserManagementAPI.test_delete_user_as_admin ______
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   psycopg2.errors.UndefinedTable: relation "users" does not exist
+
+The above exception was the direct cause of the following exception:
+venv\Lib\site-packages\pytest_django\fixtures.py:139: in django_db_setup
+    db_cfg = setup_databases(
+venv\Lib\site-packages\django\test\utils.py:206: in setup_databases
+    connection.creation.create_test_db(
+venv\Lib\site-packages\django\db\backends\base\creation.py:78: in create_test_db
+    call_command(
+venv\Lib\site-packages\django\core\management\__init__.py:194: in call_command
+    return command.execute(*args, **defaults)
+venv\Lib\site-packages\django\core\management\base.py:459: in execute
+    output = self.handle(*args, **options)
+venv\Lib\site-packages\django\core\management\base.py:107: in wrapper
+    res = handle_func(*args, **kwargs)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:322: in handle
+    self.sync_apps(connection, executor.loader.unmigrated_apps)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:469: in sync_apps
+    with connection.schema_editor() as editor:
+venv\Lib\site-packages\django\db\backends\base\schema.py:167: in __exit__
+    self.execute(sql, None)
+venv\Lib\site-packages\django\db\backends\postgresql\schema.py:45: in execute
+    return super().execute(sql, params)
+venv\Lib\site-packages\django\db\backends\base\schema.py:202: in execute
+    cursor.execute(sql, params)
+venv\Lib\site-packages\django\db\backends\utils.py:79: in execute
+    return self._execute_with_wrappers(
+venv\Lib\site-packages\django\db\backends\utils.py:92: in _execute_with_wrappers
+    return executor(sql, params, many, context)
+venv\Lib\site-packages\django\db\backends\utils.py:100: in _execute
+    with self.db.wrap_database_errors:
+venv\Lib\site-packages\django\db\utils.py:91: in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   django.db.utils.ProgrammingError: relation "users" does not exist
+____________ ERROR at setup of TestProgramAPI.test_create_program _____________
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   psycopg2.errors.UndefinedTable: relation "users" does not exist
+
+The above exception was the direct cause of the following exception:
+venv\Lib\site-packages\pytest_django\fixtures.py:139: in django_db_setup
+    db_cfg = setup_databases(
+venv\Lib\site-packages\django\test\utils.py:206: in setup_databases
+    connection.creation.create_test_db(
+venv\Lib\site-packages\django\db\backends\base\creation.py:78: in create_test_db
+    call_command(
+venv\Lib\site-packages\django\core\management\__init__.py:194: in call_command
+    return command.execute(*args, **defaults)
+venv\Lib\site-packages\django\core\management\base.py:459: in execute
+    output = self.handle(*args, **options)
+venv\Lib\site-packages\django\core\management\base.py:107: in wrapper
+    res = handle_func(*args, **kwargs)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:322: in handle
+    self.sync_apps(connection, executor.loader.unmigrated_apps)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:469: in sync_apps
+    with connection.schema_editor() as editor:
+venv\Lib\site-packages\django\db\backends\base\schema.py:167: in __exit__
+    self.execute(sql, None)
+venv\Lib\site-packages\django\db\backends\postgresql\schema.py:45: in execute
+    return super().execute(sql, params)
+venv\Lib\site-packages\django\db\backends\base\schema.py:202: in execute
+    cursor.execute(sql, params)
+venv\Lib\site-packages\django\db\backends\utils.py:79: in execute
+    return self._execute_with_wrappers(
+venv\Lib\site-packages\django\db\backends\utils.py:92: in _execute_with_wrappers
+    return executor(sql, params, many, context)
+venv\Lib\site-packages\django\db\backends\utils.py:100: in _execute
+    with self.db.wrap_database_errors:
+venv\Lib\site-packages\django\db\utils.py:91: in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   django.db.utils.ProgrammingError: relation "users" does not exist
+_____________ ERROR at setup of TestProgramAPI.test_list_programs _____________
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   psycopg2.errors.UndefinedTable: relation "users" does not exist
+
+The above exception was the direct cause of the following exception:
+venv\Lib\site-packages\pytest_django\fixtures.py:139: in django_db_setup
+    db_cfg = setup_databases(
+venv\Lib\site-packages\django\test\utils.py:206: in setup_databases
+    connection.creation.create_test_db(
+venv\Lib\site-packages\django\db\backends\base\creation.py:78: in create_test_db
+    call_command(
+venv\Lib\site-packages\django\core\management\__init__.py:194: in call_command
+    return command.execute(*args, **defaults)
+venv\Lib\site-packages\django\core\management\base.py:459: in execute
+    output = self.handle(*args, **options)
+venv\Lib\site-packages\django\core\management\base.py:107: in wrapper
+    res = handle_func(*args, **kwargs)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:322: in handle
+    self.sync_apps(connection, executor.loader.unmigrated_apps)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:469: in sync_apps
+    with connection.schema_editor() as editor:
+venv\Lib\site-packages\django\db\backends\base\schema.py:167: in __exit__
+    self.execute(sql, None)
+venv\Lib\site-packages\django\db\backends\postgresql\schema.py:45: in execute
+    return super().execute(sql, params)
+venv\Lib\site-packages\django\db\backends\base\schema.py:202: in execute
+    cursor.execute(sql, params)
+venv\Lib\site-packages\django\db\backends\utils.py:79: in execute
+    return self._execute_with_wrappers(
+venv\Lib\site-packages\django\db\backends\utils.py:92: in _execute_with_wrappers
+    return executor(sql, params, many, context)
+venv\Lib\site-packages\django\db\backends\utils.py:100: in _execute
+    with self.db.wrap_database_errors:
+venv\Lib\site-packages\django\db\utils.py:91: in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   django.db.utils.ProgrammingError: relation "users" does not exist
+______________ ERROR at setup of TestProgramAPI.test_get_program ______________
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   psycopg2.errors.UndefinedTable: relation "users" does not exist
+
+The above exception was the direct cause of the following exception:
+venv\Lib\site-packages\pytest_django\fixtures.py:139: in django_db_setup
+    db_cfg = setup_databases(
+venv\Lib\site-packages\django\test\utils.py:206: in setup_databases
+    connection.creation.create_test_db(
+venv\Lib\site-packages\django\db\backends\base\creation.py:78: in create_test_db
+    call_command(
+venv\Lib\site-packages\django\core\management\__init__.py:194: in call_command
+    return command.execute(*args, **defaults)
+venv\Lib\site-packages\django\core\management\base.py:459: in execute
+    output = self.handle(*args, **options)
+venv\Lib\site-packages\django\core\management\base.py:107: in wrapper
+    res = handle_func(*args, **kwargs)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:322: in handle
+    self.sync_apps(connection, executor.loader.unmigrated_apps)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:469: in sync_apps
+    with connection.schema_editor() as editor:
+venv\Lib\site-packages\django\db\backends\base\schema.py:167: in __exit__
+    self.execute(sql, None)
+venv\Lib\site-packages\django\db\backends\postgresql\schema.py:45: in execute
+    return super().execute(sql, params)
+venv\Lib\site-packages\django\db\backends\base\schema.py:202: in execute
+    cursor.execute(sql, params)
+venv\Lib\site-packages\django\db\backends\utils.py:79: in execute
+    return self._execute_with_wrappers(
+venv\Lib\site-packages\django\db\backends\utils.py:92: in _execute_with_wrappers
+    return executor(sql, params, many, context)
+venv\Lib\site-packages\django\db\backends\utils.py:100: in _execute
+    with self.db.wrap_database_errors:
+venv\Lib\site-packages\django\db\utils.py:91: in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   django.db.utils.ProgrammingError: relation "users" does not exist
+____________ ERROR at setup of TestProgramAPI.test_update_program _____________
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   psycopg2.errors.UndefinedTable: relation "users" does not exist
+
+The above exception was the direct cause of the following exception:
+venv\Lib\site-packages\pytest_django\fixtures.py:139: in django_db_setup
+    db_cfg = setup_databases(
+venv\Lib\site-packages\django\test\utils.py:206: in setup_databases
+    connection.creation.create_test_db(
+venv\Lib\site-packages\django\db\backends\base\creation.py:78: in create_test_db
+    call_command(
+venv\Lib\site-packages\django\core\management\__init__.py:194: in call_command
+    return command.execute(*args, **defaults)
+venv\Lib\site-packages\django\core\management\base.py:459: in execute
+    output = self.handle(*args, **options)
+venv\Lib\site-packages\django\core\management\base.py:107: in wrapper
+    res = handle_func(*args, **kwargs)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:322: in handle
+    self.sync_apps(connection, executor.loader.unmigrated_apps)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:469: in sync_apps
+    with connection.schema_editor() as editor:
+venv\Lib\site-packages\django\db\backends\base\schema.py:167: in __exit__
+    self.execute(sql, None)
+venv\Lib\site-packages\django\db\backends\postgresql\schema.py:45: in execute
+    return super().execute(sql, params)
+venv\Lib\site-packages\django\db\backends\base\schema.py:202: in execute
+    cursor.execute(sql, params)
+venv\Lib\site-packages\django\db\backends\utils.py:79: in execute
+    return self._execute_with_wrappers(
+venv\Lib\site-packages\django\db\backends\utils.py:92: in _execute_with_wrappers
+    return executor(sql, params, many, context)
+venv\Lib\site-packages\django\db\backends\utils.py:100: in _execute
+    with self.db.wrap_database_errors:
+venv\Lib\site-packages\django\db\utils.py:91: in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   django.db.utils.ProgrammingError: relation "users" does not exist
+____________ ERROR at setup of TestProgramAPI.test_delete_program _____________
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   psycopg2.errors.UndefinedTable: relation "users" does not exist
+
+The above exception was the direct cause of the following exception:
+venv\Lib\site-packages\pytest_django\fixtures.py:139: in django_db_setup
+    db_cfg = setup_databases(
+venv\Lib\site-packages\django\test\utils.py:206: in setup_databases
+    connection.creation.create_test_db(
+venv\Lib\site-packages\django\db\backends\base\creation.py:78: in create_test_db
+    call_command(
+venv\Lib\site-packages\django\core\management\__init__.py:194: in call_command
+    return command.execute(*args, **defaults)
+venv\Lib\site-packages\django\core\management\base.py:459: in execute
+    output = self.handle(*args, **options)
+venv\Lib\site-packages\django\core\management\base.py:107: in wrapper
+    res = handle_func(*args, **kwargs)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:322: in handle
+    self.sync_apps(connection, executor.loader.unmigrated_apps)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:469: in sync_apps
+    with connection.schema_editor() as editor:
+venv\Lib\site-packages\django\db\backends\base\schema.py:167: in __exit__
+    self.execute(sql, None)
+venv\Lib\site-packages\django\db\backends\postgresql\schema.py:45: in execute
+    return super().execute(sql, params)
+venv\Lib\site-packages\django\db\backends\base\schema.py:202: in execute
+    cursor.execute(sql, params)
+venv\Lib\site-packages\django\db\backends\utils.py:79: in execute
+    return self._execute_with_wrappers(
+venv\Lib\site-packages\django\db\backends\utils.py:92: in _execute_with_wrappers
+    return executor(sql, params, many, context)
+venv\Lib\site-packages\django\db\backends\utils.py:100: in _execute
+    with self.db.wrap_database_errors:
+venv\Lib\site-packages\django\db\utils.py:91: in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   django.db.utils.ProgrammingError: relation "users" does not exist
+____________ ERROR at setup of TestProgramAPI.test_search_programs ____________
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   psycopg2.errors.UndefinedTable: relation "users" does not exist
+
+The above exception was the direct cause of the following exception:
+venv\Lib\site-packages\pytest_django\fixtures.py:139: in django_db_setup
+    db_cfg = setup_databases(
+venv\Lib\site-packages\django\test\utils.py:206: in setup_databases
+    connection.creation.create_test_db(
+venv\Lib\site-packages\django\db\backends\base\creation.py:78: in create_test_db
+    call_command(
+venv\Lib\site-packages\django\core\management\__init__.py:194: in call_command
+    return command.execute(*args, **defaults)
+venv\Lib\site-packages\django\core\management\base.py:459: in execute
+    output = self.handle(*args, **options)
+venv\Lib\site-packages\django\core\management\base.py:107: in wrapper
+    res = handle_func(*args, **kwargs)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:322: in handle
+    self.sync_apps(connection, executor.loader.unmigrated_apps)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:469: in sync_apps
+    with connection.schema_editor() as editor:
+venv\Lib\site-packages\django\db\backends\base\schema.py:167: in __exit__
+    self.execute(sql, None)
+venv\Lib\site-packages\django\db\backends\postgresql\schema.py:45: in execute
+    return super().execute(sql, params)
+venv\Lib\site-packages\django\db\backends\base\schema.py:202: in execute
+    cursor.execute(sql, params)
+venv\Lib\site-packages\django\db\backends\utils.py:79: in execute
+    return self._execute_with_wrappers(
+venv\Lib\site-packages\django\db\backends\utils.py:92: in _execute_with_wrappers
+    return executor(sql, params, many, context)
+venv\Lib\site-packages\django\db\backends\utils.py:100: in _execute
+    with self.db.wrap_database_errors:
+venv\Lib\site-packages\django\db\utils.py:91: in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   django.db.utils.ProgrammingError: relation "users" does not exist
+_____________ ERROR at setup of TestCourseAPI.test_create_course ______________
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   psycopg2.errors.UndefinedTable: relation "users" does not exist
+
+The above exception was the direct cause of the following exception:
+venv\Lib\site-packages\pytest_django\fixtures.py:139: in django_db_setup
+    db_cfg = setup_databases(
+venv\Lib\site-packages\django\test\utils.py:206: in setup_databases
+    connection.creation.create_test_db(
+venv\Lib\site-packages\django\db\backends\base\creation.py:78: in create_test_db
+    call_command(
+venv\Lib\site-packages\django\core\management\__init__.py:194: in call_command
+    return command.execute(*args, **defaults)
+venv\Lib\site-packages\django\core\management\base.py:459: in execute
+    output = self.handle(*args, **options)
+venv\Lib\site-packages\django\core\management\base.py:107: in wrapper
+    res = handle_func(*args, **kwargs)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:322: in handle
+    self.sync_apps(connection, executor.loader.unmigrated_apps)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:469: in sync_apps
+    with connection.schema_editor() as editor:
+venv\Lib\site-packages\django\db\backends\base\schema.py:167: in __exit__
+    self.execute(sql, None)
+venv\Lib\site-packages\django\db\backends\postgresql\schema.py:45: in execute
+    return super().execute(sql, params)
+venv\Lib\site-packages\django\db\backends\base\schema.py:202: in execute
+    cursor.execute(sql, params)
+venv\Lib\site-packages\django\db\backends\utils.py:79: in execute
+    return self._execute_with_wrappers(
+venv\Lib\site-packages\django\db\backends\utils.py:92: in _execute_with_wrappers
+    return executor(sql, params, many, context)
+venv\Lib\site-packages\django\db\backends\utils.py:100: in _execute
+    with self.db.wrap_database_errors:
+venv\Lib\site-packages\django\db\utils.py:91: in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   django.db.utils.ProgrammingError: relation "users" does not exist
+______________ ERROR at setup of TestCourseAPI.test_list_courses ______________
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   psycopg2.errors.UndefinedTable: relation "users" does not exist
+
+The above exception was the direct cause of the following exception:
+venv\Lib\site-packages\pytest_django\fixtures.py:139: in django_db_setup
+    db_cfg = setup_databases(
+venv\Lib\site-packages\django\test\utils.py:206: in setup_databases
+    connection.creation.create_test_db(
+venv\Lib\site-packages\django\db\backends\base\creation.py:78: in create_test_db
+    call_command(
+venv\Lib\site-packages\django\core\management\__init__.py:194: in call_command
+    return command.execute(*args, **defaults)
+venv\Lib\site-packages\django\core\management\base.py:459: in execute
+    output = self.handle(*args, **options)
+venv\Lib\site-packages\django\core\management\base.py:107: in wrapper
+    res = handle_func(*args, **kwargs)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:322: in handle
+    self.sync_apps(connection, executor.loader.unmigrated_apps)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:469: in sync_apps
+    with connection.schema_editor() as editor:
+venv\Lib\site-packages\django\db\backends\base\schema.py:167: in __exit__
+    self.execute(sql, None)
+venv\Lib\site-packages\django\db\backends\postgresql\schema.py:45: in execute
+    return super().execute(sql, params)
+venv\Lib\site-packages\django\db\backends\base\schema.py:202: in execute
+    cursor.execute(sql, params)
+venv\Lib\site-packages\django\db\backends\utils.py:79: in execute
+    return self._execute_with_wrappers(
+venv\Lib\site-packages\django\db\backends\utils.py:92: in _execute_with_wrappers
+    return executor(sql, params, many, context)
+venv\Lib\site-packages\django\db\backends\utils.py:100: in _execute
+    with self.db.wrap_database_errors:
+venv\Lib\site-packages\django\db\utils.py:91: in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   django.db.utils.ProgrammingError: relation "users" does not exist
+_______ ERROR at setup of TestCourseAPI.test_filter_courses_by_program ________
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   psycopg2.errors.UndefinedTable: relation "users" does not exist
+
+The above exception was the direct cause of the following exception:
+venv\Lib\site-packages\pytest_django\fixtures.py:139: in django_db_setup
+    db_cfg = setup_databases(
+venv\Lib\site-packages\django\test\utils.py:206: in setup_databases
+    connection.creation.create_test_db(
+venv\Lib\site-packages\django\db\backends\base\creation.py:78: in create_test_db
+    call_command(
+venv\Lib\site-packages\django\core\management\__init__.py:194: in call_command
+    return command.execute(*args, **defaults)
+venv\Lib\site-packages\django\core\management\base.py:459: in execute
+    output = self.handle(*args, **options)
+venv\Lib\site-packages\django\core\management\base.py:107: in wrapper
+    res = handle_func(*args, **kwargs)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:322: in handle
+    self.sync_apps(connection, executor.loader.unmigrated_apps)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:469: in sync_apps
+    with connection.schema_editor() as editor:
+venv\Lib\site-packages\django\db\backends\base\schema.py:167: in __exit__
+    self.execute(sql, None)
+venv\Lib\site-packages\django\db\backends\postgresql\schema.py:45: in execute
+    return super().execute(sql, params)
+venv\Lib\site-packages\django\db\backends\base\schema.py:202: in execute
+    cursor.execute(sql, params)
+venv\Lib\site-packages\django\db\backends\utils.py:79: in execute
+    return self._execute_with_wrappers(
+venv\Lib\site-packages\django\db\backends\utils.py:92: in _execute_with_wrappers
+    return executor(sql, params, many, context)
+venv\Lib\site-packages\django\db\backends\utils.py:100: in _execute
+    with self.db.wrap_database_errors:
+venv\Lib\site-packages\django\db\utils.py:91: in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   django.db.utils.ProgrammingError: relation "users" does not exist
+_____________ ERROR at setup of TestCohortAPI.test_create_cohort ______________
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   psycopg2.errors.UndefinedTable: relation "users" does not exist
+
+The above exception was the direct cause of the following exception:
+venv\Lib\site-packages\pytest_django\fixtures.py:139: in django_db_setup
+    db_cfg = setup_databases(
+venv\Lib\site-packages\django\test\utils.py:206: in setup_databases
+    connection.creation.create_test_db(
+venv\Lib\site-packages\django\db\backends\base\creation.py:78: in create_test_db
+    call_command(
+venv\Lib\site-packages\django\core\management\__init__.py:194: in call_command
+    return command.execute(*args, **defaults)
+venv\Lib\site-packages\django\core\management\base.py:459: in execute
+    output = self.handle(*args, **options)
+venv\Lib\site-packages\django\core\management\base.py:107: in wrapper
+    res = handle_func(*args, **kwargs)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:322: in handle
+    self.sync_apps(connection, executor.loader.unmigrated_apps)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:469: in sync_apps
+    with connection.schema_editor() as editor:
+venv\Lib\site-packages\django\db\backends\base\schema.py:167: in __exit__
+    self.execute(sql, None)
+venv\Lib\site-packages\django\db\backends\postgresql\schema.py:45: in execute
+    return super().execute(sql, params)
+venv\Lib\site-packages\django\db\backends\base\schema.py:202: in execute
+    cursor.execute(sql, params)
+venv\Lib\site-packages\django\db\backends\utils.py:79: in execute
+    return self._execute_with_wrappers(
+venv\Lib\site-packages\django\db\backends\utils.py:92: in _execute_with_wrappers
+    return executor(sql, params, many, context)
+venv\Lib\site-packages\django\db\backends\utils.py:100: in _execute
+    with self.db.wrap_database_errors:
+venv\Lib\site-packages\django\db\utils.py:91: in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   django.db.utils.ProgrammingError: relation "users" does not exist
+______________ ERROR at setup of TestCohortAPI.test_list_cohorts ______________
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   psycopg2.errors.UndefinedTable: relation "users" does not exist
+
+The above exception was the direct cause of the following exception:
+venv\Lib\site-packages\pytest_django\fixtures.py:139: in django_db_setup
+    db_cfg = setup_databases(
+venv\Lib\site-packages\django\test\utils.py:206: in setup_databases
+    connection.creation.create_test_db(
+venv\Lib\site-packages\django\db\backends\base\creation.py:78: in create_test_db
+    call_command(
+venv\Lib\site-packages\django\core\management\__init__.py:194: in call_command
+    return command.execute(*args, **defaults)
+venv\Lib\site-packages\django\core\management\base.py:459: in execute
+    output = self.handle(*args, **options)
+venv\Lib\site-packages\django\core\management\base.py:107: in wrapper
+    res = handle_func(*args, **kwargs)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:322: in handle
+    self.sync_apps(connection, executor.loader.unmigrated_apps)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:469: in sync_apps
+    with connection.schema_editor() as editor:
+venv\Lib\site-packages\django\db\backends\base\schema.py:167: in __exit__
+    self.execute(sql, None)
+venv\Lib\site-packages\django\db\backends\postgresql\schema.py:45: in execute
+    return super().execute(sql, params)
+venv\Lib\site-packages\django\db\backends\base\schema.py:202: in execute
+    cursor.execute(sql, params)
+venv\Lib\site-packages\django\db\backends\utils.py:79: in execute
+    return self._execute_with_wrappers(
+venv\Lib\site-packages\django\db\backends\utils.py:92: in _execute_with_wrappers
+    return executor(sql, params, many, context)
+venv\Lib\site-packages\django\db\backends\utils.py:100: in _execute
+    with self.db.wrap_database_errors:
+venv\Lib\site-packages\django\db\utils.py:91: in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   django.db.utils.ProgrammingError: relation "users" does not exist
+_____ ERROR at setup of TestCohortAPI.test_lecturer_sees_only_own_cohorts _____
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   psycopg2.errors.UndefinedTable: relation "users" does not exist
+
+The above exception was the direct cause of the following exception:
+venv\Lib\site-packages\pytest_django\fixtures.py:139: in django_db_setup
+    db_cfg = setup_databases(
+venv\Lib\site-packages\django\test\utils.py:206: in setup_databases
+    connection.creation.create_test_db(
+venv\Lib\site-packages\django\db\backends\base\creation.py:78: in create_test_db
+    call_command(
+venv\Lib\site-packages\django\core\management\__init__.py:194: in call_command
+    return command.execute(*args, **defaults)
+venv\Lib\site-packages\django\core\management\base.py:459: in execute
+    output = self.handle(*args, **options)
+venv\Lib\site-packages\django\core\management\base.py:107: in wrapper
+    res = handle_func(*args, **kwargs)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:322: in handle
+    self.sync_apps(connection, executor.loader.unmigrated_apps)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:469: in sync_apps
+    with connection.schema_editor() as editor:
+venv\Lib\site-packages\django\db\backends\base\schema.py:167: in __exit__
+    self.execute(sql, None)
+venv\Lib\site-packages\django\db\backends\postgresql\schema.py:45: in execute
+    return super().execute(sql, params)
+venv\Lib\site-packages\django\db\backends\base\schema.py:202: in execute
+    cursor.execute(sql, params)
+venv\Lib\site-packages\django\db\backends\utils.py:79: in execute
+    return self._execute_with_wrappers(
+venv\Lib\site-packages\django\db\backends\utils.py:92: in _execute_with_wrappers
+    return executor(sql, params, many, context)
+venv\Lib\site-packages\django\db\backends\utils.py:100: in _execute
+    with self.db.wrap_database_errors:
+venv\Lib\site-packages\django\db\utils.py:91: in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   django.db.utils.ProgrammingError: relation "users" does not exist
+___________ ERROR at setup of TestCohortAPI.test_generate_sessions ____________
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   psycopg2.errors.UndefinedTable: relation "users" does not exist
+
+The above exception was the direct cause of the following exception:
+venv\Lib\site-packages\pytest_django\fixtures.py:139: in django_db_setup
+    db_cfg = setup_databases(
+venv\Lib\site-packages\django\test\utils.py:206: in setup_databases
+    connection.creation.create_test_db(
+venv\Lib\site-packages\django\db\backends\base\creation.py:78: in create_test_db
+    call_command(
+venv\Lib\site-packages\django\core\management\__init__.py:194: in call_command
+    return command.execute(*args, **defaults)
+venv\Lib\site-packages\django\core\management\base.py:459: in execute
+    output = self.handle(*args, **options)
+venv\Lib\site-packages\django\core\management\base.py:107: in wrapper
+    res = handle_func(*args, **kwargs)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:322: in handle
+    self.sync_apps(connection, executor.loader.unmigrated_apps)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:469: in sync_apps
+    with connection.schema_editor() as editor:
+venv\Lib\site-packages\django\db\backends\base\schema.py:167: in __exit__
+    self.execute(sql, None)
+venv\Lib\site-packages\django\db\backends\postgresql\schema.py:45: in execute
+    return super().execute(sql, params)
+venv\Lib\site-packages\django\db\backends\base\schema.py:202: in execute
+    cursor.execute(sql, params)
+venv\Lib\site-packages\django\db\backends\utils.py:79: in execute
+    return self._execute_with_wrappers(
+venv\Lib\site-packages\django\db\backends\utils.py:92: in _execute_with_wrappers
+    return executor(sql, params, many, context)
+venv\Lib\site-packages\django\db\backends\utils.py:100: in _execute
+    with self.db.wrap_database_errors:
+venv\Lib\site-packages\django\db\utils.py:91: in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   django.db.utils.ProgrammingError: relation "users" does not exist
+____________ ERROR at setup of TestSessionAPI.test_create_session _____________
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   psycopg2.errors.UndefinedTable: relation "users" does not exist
+
+The above exception was the direct cause of the following exception:
+venv\Lib\site-packages\pytest_django\fixtures.py:139: in django_db_setup
+    db_cfg = setup_databases(
+venv\Lib\site-packages\django\test\utils.py:206: in setup_databases
+    connection.creation.create_test_db(
+venv\Lib\site-packages\django\db\backends\base\creation.py:78: in create_test_db
+    call_command(
+venv\Lib\site-packages\django\core\management\__init__.py:194: in call_command
+    return command.execute(*args, **defaults)
+venv\Lib\site-packages\django\core\management\base.py:459: in execute
+    output = self.handle(*args, **options)
+venv\Lib\site-packages\django\core\management\base.py:107: in wrapper
+    res = handle_func(*args, **kwargs)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:322: in handle
+    self.sync_apps(connection, executor.loader.unmigrated_apps)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:469: in sync_apps
+    with connection.schema_editor() as editor:
+venv\Lib\site-packages\django\db\backends\base\schema.py:167: in __exit__
+    self.execute(sql, None)
+venv\Lib\site-packages\django\db\backends\postgresql\schema.py:45: in execute
+    return super().execute(sql, params)
+venv\Lib\site-packages\django\db\backends\base\schema.py:202: in execute
+    cursor.execute(sql, params)
+venv\Lib\site-packages\django\db\backends\utils.py:79: in execute
+    return self._execute_with_wrappers(
+venv\Lib\site-packages\django\db\backends\utils.py:92: in _execute_with_wrappers
+    return executor(sql, params, many, context)
+venv\Lib\site-packages\django\db\backends\utils.py:100: in _execute
+    with self.db.wrap_database_errors:
+venv\Lib\site-packages\django\db\utils.py:91: in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   django.db.utils.ProgrammingError: relation "users" does not exist
+_____________ ERROR at setup of TestSessionAPI.test_list_sessions _____________
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   psycopg2.errors.UndefinedTable: relation "users" does not exist
+
+The above exception was the direct cause of the following exception:
+venv\Lib\site-packages\pytest_django\fixtures.py:139: in django_db_setup
+    db_cfg = setup_databases(
+venv\Lib\site-packages\django\test\utils.py:206: in setup_databases
+    connection.creation.create_test_db(
+venv\Lib\site-packages\django\db\backends\base\creation.py:78: in create_test_db
+    call_command(
+venv\Lib\site-packages\django\core\management\__init__.py:194: in call_command
+    return command.execute(*args, **defaults)
+venv\Lib\site-packages\django\core\management\base.py:459: in execute
+    output = self.handle(*args, **options)
+venv\Lib\site-packages\django\core\management\base.py:107: in wrapper
+    res = handle_func(*args, **kwargs)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:322: in handle
+    self.sync_apps(connection, executor.loader.unmigrated_apps)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:469: in sync_apps
+    with connection.schema_editor() as editor:
+venv\Lib\site-packages\django\db\backends\base\schema.py:167: in __exit__
+    self.execute(sql, None)
+venv\Lib\site-packages\django\db\backends\postgresql\schema.py:45: in execute
+    return super().execute(sql, params)
+venv\Lib\site-packages\django\db\backends\base\schema.py:202: in execute
+    cursor.execute(sql, params)
+venv\Lib\site-packages\django\db\backends\utils.py:79: in execute
+    return self._execute_with_wrappers(
+venv\Lib\site-packages\django\db\backends\utils.py:92: in _execute_with_wrappers
+    return executor(sql, params, many, context)
+venv\Lib\site-packages\django\db\backends\utils.py:100: in _execute
+    with self.db.wrap_database_errors:
+venv\Lib\site-packages\django\db\utils.py:91: in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   django.db.utils.ProgrammingError: relation "users" does not exist
+_______ ERROR at setup of TestSessionAPI.test_filter_sessions_by_cohort _______
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   psycopg2.errors.UndefinedTable: relation "users" does not exist
+
+The above exception was the direct cause of the following exception:
+venv\Lib\site-packages\pytest_django\fixtures.py:139: in django_db_setup
+    db_cfg = setup_databases(
+venv\Lib\site-packages\django\test\utils.py:206: in setup_databases
+    connection.creation.create_test_db(
+venv\Lib\site-packages\django\db\backends\base\creation.py:78: in create_test_db
+    call_command(
+venv\Lib\site-packages\django\core\management\__init__.py:194: in call_command
+    return command.execute(*args, **defaults)
+venv\Lib\site-packages\django\core\management\base.py:459: in execute
+    output = self.handle(*args, **options)
+venv\Lib\site-packages\django\core\management\base.py:107: in wrapper
+    res = handle_func(*args, **kwargs)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:322: in handle
+    self.sync_apps(connection, executor.loader.unmigrated_apps)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:469: in sync_apps
+    with connection.schema_editor() as editor:
+venv\Lib\site-packages\django\db\backends\base\schema.py:167: in __exit__
+    self.execute(sql, None)
+venv\Lib\site-packages\django\db\backends\postgresql\schema.py:45: in execute
+    return super().execute(sql, params)
+venv\Lib\site-packages\django\db\backends\base\schema.py:202: in execute
+    cursor.execute(sql, params)
+venv\Lib\site-packages\django\db\backends\utils.py:79: in execute
+    return self._execute_with_wrappers(
+venv\Lib\site-packages\django\db\backends\utils.py:92: in _execute_with_wrappers
+    return executor(sql, params, many, context)
+venv\Lib\site-packages\django\db\backends\utils.py:100: in _execute
+    with self.db.wrap_database_errors:
+venv\Lib\site-packages\django\db\utils.py:91: in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   django.db.utils.ProgrammingError: relation "users" does not exist
+____________ ERROR at setup of TestSessionAPI.test_cancel_session _____________
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   psycopg2.errors.UndefinedTable: relation "users" does not exist
+
+The above exception was the direct cause of the following exception:
+venv\Lib\site-packages\pytest_django\fixtures.py:139: in django_db_setup
+    db_cfg = setup_databases(
+venv\Lib\site-packages\django\test\utils.py:206: in setup_databases
+    connection.creation.create_test_db(
+venv\Lib\site-packages\django\db\backends\base\creation.py:78: in create_test_db
+    call_command(
+venv\Lib\site-packages\django\core\management\__init__.py:194: in call_command
+    return command.execute(*args, **defaults)
+venv\Lib\site-packages\django\core\management\base.py:459: in execute
+    output = self.handle(*args, **options)
+venv\Lib\site-packages\django\core\management\base.py:107: in wrapper
+    res = handle_func(*args, **kwargs)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:322: in handle
+    self.sync_apps(connection, executor.loader.unmigrated_apps)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:469: in sync_apps
+    with connection.schema_editor() as editor:
+venv\Lib\site-packages\django\db\backends\base\schema.py:167: in __exit__
+    self.execute(sql, None)
+venv\Lib\site-packages\django\db\backends\postgresql\schema.py:45: in execute
+    return super().execute(sql, params)
+venv\Lib\site-packages\django\db\backends\base\schema.py:202: in execute
+    cursor.execute(sql, params)
+venv\Lib\site-packages\django\db\backends\utils.py:79: in execute
+    return self._execute_with_wrappers(
+venv\Lib\site-packages\django\db\backends\utils.py:92: in _execute_with_wrappers
+    return executor(sql, params, many, context)
+venv\Lib\site-packages\django\db\backends\utils.py:100: in _execute
+    with self.db.wrap_database_errors:
+venv\Lib\site-packages\django\db\utils.py:91: in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   django.db.utils.ProgrammingError: relation "users" does not exist
+________ ERROR at setup of TestApplicationAPI.test_create_application _________
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   psycopg2.errors.UndefinedTable: relation "users" does not exist
+
+The above exception was the direct cause of the following exception:
+venv\Lib\site-packages\pytest_django\fixtures.py:139: in django_db_setup
+    db_cfg = setup_databases(
+venv\Lib\site-packages\django\test\utils.py:206: in setup_databases
+    connection.creation.create_test_db(
+venv\Lib\site-packages\django\db\backends\base\creation.py:78: in create_test_db
+    call_command(
+venv\Lib\site-packages\django\core\management\__init__.py:194: in call_command
+    return command.execute(*args, **defaults)
+venv\Lib\site-packages\django\core\management\base.py:459: in execute
+    output = self.handle(*args, **options)
+venv\Lib\site-packages\django\core\management\base.py:107: in wrapper
+    res = handle_func(*args, **kwargs)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:322: in handle
+    self.sync_apps(connection, executor.loader.unmigrated_apps)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:469: in sync_apps
+    with connection.schema_editor() as editor:
+venv\Lib\site-packages\django\db\backends\base\schema.py:167: in __exit__
+    self.execute(sql, None)
+venv\Lib\site-packages\django\db\backends\postgresql\schema.py:45: in execute
+    return super().execute(sql, params)
+venv\Lib\site-packages\django\db\backends\base\schema.py:202: in execute
+    cursor.execute(sql, params)
+venv\Lib\site-packages\django\db\backends\utils.py:79: in execute
+    return self._execute_with_wrappers(
+venv\Lib\site-packages\django\db\backends\utils.py:92: in _execute_with_wrappers
+    return executor(sql, params, many, context)
+venv\Lib\site-packages\django\db\backends\utils.py:100: in _execute
+    with self.db.wrap_database_errors:
+venv\Lib\site-packages\django\db\utils.py:91: in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   django.db.utils.ProgrammingError: relation "users" does not exist
+_________ ERROR at setup of TestApplicationAPI.test_list_applications _________
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   psycopg2.errors.UndefinedTable: relation "users" does not exist
+
+The above exception was the direct cause of the following exception:
+venv\Lib\site-packages\pytest_django\fixtures.py:139: in django_db_setup
+    db_cfg = setup_databases(
+venv\Lib\site-packages\django\test\utils.py:206: in setup_databases
+    connection.creation.create_test_db(
+venv\Lib\site-packages\django\db\backends\base\creation.py:78: in create_test_db
+    call_command(
+venv\Lib\site-packages\django\core\management\__init__.py:194: in call_command
+    return command.execute(*args, **defaults)
+venv\Lib\site-packages\django\core\management\base.py:459: in execute
+    output = self.handle(*args, **options)
+venv\Lib\site-packages\django\core\management\base.py:107: in wrapper
+    res = handle_func(*args, **kwargs)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:322: in handle
+    self.sync_apps(connection, executor.loader.unmigrated_apps)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:469: in sync_apps
+    with connection.schema_editor() as editor:
+venv\Lib\site-packages\django\db\backends\base\schema.py:167: in __exit__
+    self.execute(sql, None)
+venv\Lib\site-packages\django\db\backends\postgresql\schema.py:45: in execute
+    return super().execute(sql, params)
+venv\Lib\site-packages\django\db\backends\base\schema.py:202: in execute
+    cursor.execute(sql, params)
+venv\Lib\site-packages\django\db\backends\utils.py:79: in execute
+    return self._execute_with_wrappers(
+venv\Lib\site-packages\django\db\backends\utils.py:92: in _execute_with_wrappers
+    return executor(sql, params, many, context)
+venv\Lib\site-packages\django\db\backends\utils.py:100: in _execute
+    with self.db.wrap_database_errors:
+venv\Lib\site-packages\django\db\utils.py:91: in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   django.db.utils.ProgrammingError: relation "users" does not exist
+________ ERROR at setup of TestApplicationAPI.test_accept_application _________
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   psycopg2.errors.UndefinedTable: relation "users" does not exist
+
+The above exception was the direct cause of the following exception:
+venv\Lib\site-packages\pytest_django\fixtures.py:139: in django_db_setup
+    db_cfg = setup_databases(
+venv\Lib\site-packages\django\test\utils.py:206: in setup_databases
+    connection.creation.create_test_db(
+venv\Lib\site-packages\django\db\backends\base\creation.py:78: in create_test_db
+    call_command(
+venv\Lib\site-packages\django\core\management\__init__.py:194: in call_command
+    return command.execute(*args, **defaults)
+venv\Lib\site-packages\django\core\management\base.py:459: in execute
+    output = self.handle(*args, **options)
+venv\Lib\site-packages\django\core\management\base.py:107: in wrapper
+    res = handle_func(*args, **kwargs)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:322: in handle
+    self.sync_apps(connection, executor.loader.unmigrated_apps)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:469: in sync_apps
+    with connection.schema_editor() as editor:
+venv\Lib\site-packages\django\db\backends\base\schema.py:167: in __exit__
+    self.execute(sql, None)
+venv\Lib\site-packages\django\db\backends\postgresql\schema.py:45: in execute
+    return super().execute(sql, params)
+venv\Lib\site-packages\django\db\backends\base\schema.py:202: in execute
+    cursor.execute(sql, params)
+venv\Lib\site-packages\django\db\backends\utils.py:79: in execute
+    return self._execute_with_wrappers(
+venv\Lib\site-packages\django\db\backends\utils.py:92: in _execute_with_wrappers
+    return executor(sql, params, many, context)
+venv\Lib\site-packages\django\db\backends\utils.py:100: in _execute
+    with self.db.wrap_database_errors:
+venv\Lib\site-packages\django\db\utils.py:91: in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   django.db.utils.ProgrammingError: relation "users" does not exist
+_________ ERROR at setup of TestEnrollmentAPI.test_create_enrollment __________
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   psycopg2.errors.UndefinedTable: relation "users" does not exist
+
+The above exception was the direct cause of the following exception:
+venv\Lib\site-packages\pytest_django\fixtures.py:139: in django_db_setup
+    db_cfg = setup_databases(
+venv\Lib\site-packages\django\test\utils.py:206: in setup_databases
+    connection.creation.create_test_db(
+venv\Lib\site-packages\django\db\backends\base\creation.py:78: in create_test_db
+    call_command(
+venv\Lib\site-packages\django\core\management\__init__.py:194: in call_command
+    return command.execute(*args, **defaults)
+venv\Lib\site-packages\django\core\management\base.py:459: in execute
+    output = self.handle(*args, **options)
+venv\Lib\site-packages\django\core\management\base.py:107: in wrapper
+    res = handle_func(*args, **kwargs)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:322: in handle
+    self.sync_apps(connection, executor.loader.unmigrated_apps)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:469: in sync_apps
+    with connection.schema_editor() as editor:
+venv\Lib\site-packages\django\db\backends\base\schema.py:167: in __exit__
+    self.execute(sql, None)
+venv\Lib\site-packages\django\db\backends\postgresql\schema.py:45: in execute
+    return super().execute(sql, params)
+venv\Lib\site-packages\django\db\backends\base\schema.py:202: in execute
+    cursor.execute(sql, params)
+venv\Lib\site-packages\django\db\backends\utils.py:79: in execute
+    return self._execute_with_wrappers(
+venv\Lib\site-packages\django\db\backends\utils.py:92: in _execute_with_wrappers
+    return executor(sql, params, many, context)
+venv\Lib\site-packages\django\db\backends\utils.py:100: in _execute
+    with self.db.wrap_database_errors:
+venv\Lib\site-packages\django\db\utils.py:91: in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   django.db.utils.ProgrammingError: relation "users" does not exist
+________ ERROR at setup of TestEnrollmentAPI.test_activate_enrollment _________
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   psycopg2.errors.UndefinedTable: relation "users" does not exist
+
+The above exception was the direct cause of the following exception:
+venv\Lib\site-packages\pytest_django\fixtures.py:139: in django_db_setup
+    db_cfg = setup_databases(
+venv\Lib\site-packages\django\test\utils.py:206: in setup_databases
+    connection.creation.create_test_db(
+venv\Lib\site-packages\django\db\backends\base\creation.py:78: in create_test_db
+    call_command(
+venv\Lib\site-packages\django\core\management\__init__.py:194: in call_command
+    return command.execute(*args, **defaults)
+venv\Lib\site-packages\django\core\management\base.py:459: in execute
+    output = self.handle(*args, **options)
+venv\Lib\site-packages\django\core\management\base.py:107: in wrapper
+    res = handle_func(*args, **kwargs)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:322: in handle
+    self.sync_apps(connection, executor.loader.unmigrated_apps)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:469: in sync_apps
+    with connection.schema_editor() as editor:
+venv\Lib\site-packages\django\db\backends\base\schema.py:167: in __exit__
+    self.execute(sql, None)
+venv\Lib\site-packages\django\db\backends\postgresql\schema.py:45: in execute
+    return super().execute(sql, params)
+venv\Lib\site-packages\django\db\backends\base\schema.py:202: in execute
+    cursor.execute(sql, params)
+venv\Lib\site-packages\django\db\backends\utils.py:79: in execute
+    return self._execute_with_wrappers(
+venv\Lib\site-packages\django\db\backends\utils.py:92: in _execute_with_wrappers
+    return executor(sql, params, many, context)
+venv\Lib\site-packages\django\db\backends\utils.py:100: in _execute
+    with self.db.wrap_database_errors:
+venv\Lib\site-packages\django\db\utils.py:91: in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   django.db.utils.ProgrammingError: relation "users" does not exist
+______ ERROR at setup of TestAttendanceAPI.test_create_attendance_record ______
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   psycopg2.errors.UndefinedTable: relation "users" does not exist
+
+The above exception was the direct cause of the following exception:
+venv\Lib\site-packages\pytest_django\fixtures.py:139: in django_db_setup
+    db_cfg = setup_databases(
+venv\Lib\site-packages\django\test\utils.py:206: in setup_databases
+    connection.creation.create_test_db(
+venv\Lib\site-packages\django\db\backends\base\creation.py:78: in create_test_db
+    call_command(
+venv\Lib\site-packages\django\core\management\__init__.py:194: in call_command
+    return command.execute(*args, **defaults)
+venv\Lib\site-packages\django\core\management\base.py:459: in execute
+    output = self.handle(*args, **options)
+venv\Lib\site-packages\django\core\management\base.py:107: in wrapper
+    res = handle_func(*args, **kwargs)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:322: in handle
+    self.sync_apps(connection, executor.loader.unmigrated_apps)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:469: in sync_apps
+    with connection.schema_editor() as editor:
+venv\Lib\site-packages\django\db\backends\base\schema.py:167: in __exit__
+    self.execute(sql, None)
+venv\Lib\site-packages\django\db\backends\postgresql\schema.py:45: in execute
+    return super().execute(sql, params)
+venv\Lib\site-packages\django\db\backends\base\schema.py:202: in execute
+    cursor.execute(sql, params)
+venv\Lib\site-packages\django\db\backends\utils.py:79: in execute
+    return self._execute_with_wrappers(
+venv\Lib\site-packages\django\db\backends\utils.py:92: in _execute_with_wrappers
+    return executor(sql, params, many, context)
+venv\Lib\site-packages\django\db\backends\utils.py:100: in _execute
+    with self.db.wrap_database_errors:
+venv\Lib\site-packages\django\db\utils.py:91: in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   django.db.utils.ProgrammingError: relation "users" does not exist
+______ ERROR at setup of TestAttendanceAPI.test_list_attendance_records _______
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   psycopg2.errors.UndefinedTable: relation "users" does not exist
+
+The above exception was the direct cause of the following exception:
+venv\Lib\site-packages\pytest_django\fixtures.py:139: in django_db_setup
+    db_cfg = setup_databases(
+venv\Lib\site-packages\django\test\utils.py:206: in setup_databases
+    connection.creation.create_test_db(
+venv\Lib\site-packages\django\db\backends\base\creation.py:78: in create_test_db
+    call_command(
+venv\Lib\site-packages\django\core\management\__init__.py:194: in call_command
+    return command.execute(*args, **defaults)
+venv\Lib\site-packages\django\core\management\base.py:459: in execute
+    output = self.handle(*args, **options)
+venv\Lib\site-packages\django\core\management\base.py:107: in wrapper
+    res = handle_func(*args, **kwargs)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:322: in handle
+    self.sync_apps(connection, executor.loader.unmigrated_apps)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:469: in sync_apps
+    with connection.schema_editor() as editor:
+venv\Lib\site-packages\django\db\backends\base\schema.py:167: in __exit__
+    self.execute(sql, None)
+venv\Lib\site-packages\django\db\backends\postgresql\schema.py:45: in execute
+    return super().execute(sql, params)
+venv\Lib\site-packages\django\db\backends\base\schema.py:202: in execute
+    cursor.execute(sql, params)
+venv\Lib\site-packages\django\db\backends\utils.py:79: in execute
+    return self._execute_with_wrappers(
+venv\Lib\site-packages\django\db\backends\utils.py:92: in _execute_with_wrappers
+    return executor(sql, params, many, context)
+venv\Lib\site-packages\django\db\backends\utils.py:100: in _execute
+    with self.db.wrap_database_errors:
+venv\Lib\site-packages\django\db\utils.py:91: in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   django.db.utils.ProgrammingError: relation "users" does not exist
+______ ERROR at setup of TestAttendanceAPI.test_update_attendance_status ______
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   psycopg2.errors.UndefinedTable: relation "users" does not exist
+
+The above exception was the direct cause of the following exception:
+venv\Lib\site-packages\pytest_django\fixtures.py:139: in django_db_setup
+    db_cfg = setup_databases(
+venv\Lib\site-packages\django\test\utils.py:206: in setup_databases
+    connection.creation.create_test_db(
+venv\Lib\site-packages\django\db\backends\base\creation.py:78: in create_test_db
+    call_command(
+venv\Lib\site-packages\django\core\management\__init__.py:194: in call_command
+    return command.execute(*args, **defaults)
+venv\Lib\site-packages\django\core\management\base.py:459: in execute
+    output = self.handle(*args, **options)
+venv\Lib\site-packages\django\core\management\base.py:107: in wrapper
+    res = handle_func(*args, **kwargs)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:322: in handle
+    self.sync_apps(connection, executor.loader.unmigrated_apps)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:469: in sync_apps
+    with connection.schema_editor() as editor:
+venv\Lib\site-packages\django\db\backends\base\schema.py:167: in __exit__
+    self.execute(sql, None)
+venv\Lib\site-packages\django\db\backends\postgresql\schema.py:45: in execute
+    return super().execute(sql, params)
+venv\Lib\site-packages\django\db\backends\base\schema.py:202: in execute
+    cursor.execute(sql, params)
+venv\Lib\site-packages\django\db\backends\utils.py:79: in execute
+    return self._execute_with_wrappers(
+venv\Lib\site-packages\django\db\backends\utils.py:92: in _execute_with_wrappers
+    return executor(sql, params, many, context)
+venv\Lib\site-packages\django\db\backends\utils.py:100: in _execute
+    with self.db.wrap_database_errors:
+venv\Lib\site-packages\django\db\utils.py:91: in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   django.db.utils.ProgrammingError: relation "users" does not exist
+_________ ERROR at setup of TestAssessmentAPI.test_create_assessment __________
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   psycopg2.errors.UndefinedTable: relation "users" does not exist
+
+The above exception was the direct cause of the following exception:
+venv\Lib\site-packages\pytest_django\fixtures.py:139: in django_db_setup
+    db_cfg = setup_databases(
+venv\Lib\site-packages\django\test\utils.py:206: in setup_databases
+    connection.creation.create_test_db(
+venv\Lib\site-packages\django\db\backends\base\creation.py:78: in create_test_db
+    call_command(
+venv\Lib\site-packages\django\core\management\__init__.py:194: in call_command
+    return command.execute(*args, **defaults)
+venv\Lib\site-packages\django\core\management\base.py:459: in execute
+    output = self.handle(*args, **options)
+venv\Lib\site-packages\django\core\management\base.py:107: in wrapper
+    res = handle_func(*args, **kwargs)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:322: in handle
+    self.sync_apps(connection, executor.loader.unmigrated_apps)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:469: in sync_apps
+    with connection.schema_editor() as editor:
+venv\Lib\site-packages\django\db\backends\base\schema.py:167: in __exit__
+    self.execute(sql, None)
+venv\Lib\site-packages\django\db\backends\postgresql\schema.py:45: in execute
+    return super().execute(sql, params)
+venv\Lib\site-packages\django\db\backends\base\schema.py:202: in execute
+    cursor.execute(sql, params)
+venv\Lib\site-packages\django\db\backends\utils.py:79: in execute
+    return self._execute_with_wrappers(
+venv\Lib\site-packages\django\db\backends\utils.py:92: in _execute_with_wrappers
+    return executor(sql, params, many, context)
+venv\Lib\site-packages\django\db\backends\utils.py:100: in _execute
+    with self.db.wrap_database_errors:
+venv\Lib\site-packages\django\db\utils.py:91: in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   django.db.utils.ProgrammingError: relation "users" does not exist
+__________ ERROR at setup of TestAssessmentAPI.test_list_assessments __________
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   psycopg2.errors.UndefinedTable: relation "users" does not exist
+
+The above exception was the direct cause of the following exception:
+venv\Lib\site-packages\pytest_django\fixtures.py:139: in django_db_setup
+    db_cfg = setup_databases(
+venv\Lib\site-packages\django\test\utils.py:206: in setup_databases
+    connection.creation.create_test_db(
+venv\Lib\site-packages\django\db\backends\base\creation.py:78: in create_test_db
+    call_command(
+venv\Lib\site-packages\django\core\management\__init__.py:194: in call_command
+    return command.execute(*args, **defaults)
+venv\Lib\site-packages\django\core\management\base.py:459: in execute
+    output = self.handle(*args, **options)
+venv\Lib\site-packages\django\core\management\base.py:107: in wrapper
+    res = handle_func(*args, **kwargs)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:322: in handle
+    self.sync_apps(connection, executor.loader.unmigrated_apps)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:469: in sync_apps
+    with connection.schema_editor() as editor:
+venv\Lib\site-packages\django\db\backends\base\schema.py:167: in __exit__
+    self.execute(sql, None)
+venv\Lib\site-packages\django\db\backends\postgresql\schema.py:45: in execute
+    return super().execute(sql, params)
+venv\Lib\site-packages\django\db\backends\base\schema.py:202: in execute
+    cursor.execute(sql, params)
+venv\Lib\site-packages\django\db\backends\utils.py:79: in execute
+    return self._execute_with_wrappers(
+venv\Lib\site-packages\django\db\backends\utils.py:92: in _execute_with_wrappers
+    return executor(sql, params, many, context)
+venv\Lib\site-packages\django\db\backends\utils.py:100: in _execute
+    with self.db.wrap_database_errors:
+venv\Lib\site-packages\django\db\utils.py:91: in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   django.db.utils.ProgrammingError: relation "users" does not exist
+_________ ERROR at setup of TestSubmissionAPI.test_create_submission __________
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   psycopg2.errors.UndefinedTable: relation "users" does not exist
+
+The above exception was the direct cause of the following exception:
+venv\Lib\site-packages\pytest_django\fixtures.py:139: in django_db_setup
+    db_cfg = setup_databases(
+venv\Lib\site-packages\django\test\utils.py:206: in setup_databases
+    connection.creation.create_test_db(
+venv\Lib\site-packages\django\db\backends\base\creation.py:78: in create_test_db
+    call_command(
+venv\Lib\site-packages\django\core\management\__init__.py:194: in call_command
+    return command.execute(*args, **defaults)
+venv\Lib\site-packages\django\core\management\base.py:459: in execute
+    output = self.handle(*args, **options)
+venv\Lib\site-packages\django\core\management\base.py:107: in wrapper
+    res = handle_func(*args, **kwargs)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:322: in handle
+    self.sync_apps(connection, executor.loader.unmigrated_apps)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:469: in sync_apps
+    with connection.schema_editor() as editor:
+venv\Lib\site-packages\django\db\backends\base\schema.py:167: in __exit__
+    self.execute(sql, None)
+venv\Lib\site-packages\django\db\backends\postgresql\schema.py:45: in execute
+    return super().execute(sql, params)
+venv\Lib\site-packages\django\db\backends\base\schema.py:202: in execute
+    cursor.execute(sql, params)
+venv\Lib\site-packages\django\db\backends\utils.py:79: in execute
+    return self._execute_with_wrappers(
+venv\Lib\site-packages\django\db\backends\utils.py:92: in _execute_with_wrappers
+    return executor(sql, params, many, context)
+venv\Lib\site-packages\django\db\backends\utils.py:100: in _execute
+    with self.db.wrap_database_errors:
+venv\Lib\site-packages\django\db\utils.py:91: in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   django.db.utils.ProgrammingError: relation "users" does not exist
+______________ ERROR at setup of TestGradeAPI.test_create_grade _______________
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   psycopg2.errors.UndefinedTable: relation "users" does not exist
+
+The above exception was the direct cause of the following exception:
+venv\Lib\site-packages\pytest_django\fixtures.py:139: in django_db_setup
+    db_cfg = setup_databases(
+venv\Lib\site-packages\django\test\utils.py:206: in setup_databases
+    connection.creation.create_test_db(
+venv\Lib\site-packages\django\db\backends\base\creation.py:78: in create_test_db
+    call_command(
+venv\Lib\site-packages\django\core\management\__init__.py:194: in call_command
+    return command.execute(*args, **defaults)
+venv\Lib\site-packages\django\core\management\base.py:459: in execute
+    output = self.handle(*args, **options)
+venv\Lib\site-packages\django\core\management\base.py:107: in wrapper
+    res = handle_func(*args, **kwargs)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:322: in handle
+    self.sync_apps(connection, executor.loader.unmigrated_apps)
+venv\Lib\site-packages\django\core\management\commands\migrate.py:469: in sync_apps
+    with connection.schema_editor() as editor:
+venv\Lib\site-packages\django\db\backends\base\schema.py:167: in __exit__
+    self.execute(sql, None)
+venv\Lib\site-packages\django\db\backends\postgresql\schema.py:45: in execute
+    return super().execute(sql, params)
+venv\Lib\site-packages\django\db\backends\base\schema.py:202: in execute
+    cursor.execute(sql, params)
+venv\Lib\site-packages\django\db\backends\utils.py:79: in execute
+    return self._execute_with_wrappers(
+venv\Lib\site-packages\django\db\backends\utils.py:92: in _execute_with_wrappers
+    return executor(sql, params, many, context)
+venv\Lib\site-packages\django\db\backends\utils.py:100: in _execute
+    with self.db.wrap_database_errors:
+venv\Lib\site-packages\django\db\utils.py:91: in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+venv\Lib\site-packages\django\db\backends\utils.py:103: in _execute
+    return self.cursor.execute(sql)
+E   django.db.utils.ProgrammingError: relation "users" does not exist
+------------- generated xml file: D:\Academy-CRM\test-results.xml -------------
+
+---------- coverage: platform win32, python 3.11.9-final-0 -----------
+Name                                           Stmts   Miss  Cover   Missing
+----------------------------------------------------------------------------
+academy_crm\__init__.py                            6      3    50%   5-8
+academy_crm\asgi.py                                4      4     0%   10-16
+academy_crm\celery.py                              9      1    89%   20
+academy_crm\settings\__init__.py                  12      6    50%   10-13, 17-18
+academy_crm\settings\base.py                      52      1    98%   202
+academy_crm\settings\dev.py                       16      2    88%   20-21
+academy_crm\settings\prod.py                      22     22     0%   4-41
+academy_crm\urls.py                                9      9     0%   4-39
+academy_crm\wsgi.py                                4      4     0%   10-16
+accounts\__init__.py                               0      0   100%
+accounts\admin.py                                 12      0   100%
+accounts\apps.py                                   5      0   100%
+accounts\migrations\0001_initial.py                7      0   100%
+accounts\migrations\__init__.py                    0      0   100%
+accounts\models.py                                54     19    65%   22-28, 32-41, 80, 85, 90, 95
+accounts\permissions.py                            6      6     0%   4-19
+accounts\serializers.py                           32     32     0%   4-57
+accounts\tests.py                                 81     56    31%   18-29, 33-39, 43-50, 54-72, 81-88, 92-96, 100-103, 107-110, 114-121, 130-135, 139-140, 144-152, 156-161, 165-168
+accounts\urls.py                                   8      8     0%   4-13
+accounts\views.py                                 76     76     0%   4-110
+admissions\__init__.py                             0      0   100%
+admissions\admin.py                               19      0   100%
+admissions\apps.py                                 5      0   100%
+admissions\migrations\0001_initial.py              8      0   100%
+admissions\migrations\__init__.py                  0      0   100%
+admissions\models.py                              56      2    96%   52, 98
+admissions\permissions.py                          8      8     0%   4-17
+admissions\serializers.py                         22     22     0%   4-33
+admissions\tests.py                               55     40    27%   18-27, 31-47, 51-77, 86-104, 108-132
+admissions\urls.py                                 7      7     0%   4-12
+admissions\views.py                              115    115     0%   4-222
+assessment\__init__.py                             0      0   100%
+assessment\admin.py                               24      0   100%
+assessment\apps.py                                 5      0   100%
+assessment\migrations\0001_initial.py              9      0   100%
+assessment\migrations\__init__.py                  0      0   100%
+assessment\models.py                              69      6    91%   53, 84, 133, 138-140
+assessment\permissions.py                         10     10     0%   4-19
+assessment\serializers.py                         25     25     0%   4-40
+assessment\tests.py                               57     41    28%   18-41, 45-68, 77-104, 113-142
+assessment\urls.py                                 8      8     0%   4-13
+assessment\views.py                               66     66     0%   4-108
+attendance\__init__.py                             0      0   100%
+attendance\admin.py                               10      0   100%
+attendance\apps.py                                 5      0   100%
+attendance\migrations\0001_initial.py              8      0   100%
+attendance\migrations\__init__.py                  0      0   100%
+attendance\models.py                              26      1    96%   57
+attendance\permissions.py                          8      8     0%   4-17
+attendance\serializers.py                         21     21     0%   4-37
+attendance\tests.py                               47     36    23%   18-44, 48-75, 79-111
+attendance\urls.py                                 6      6     0%   4-11
+attendance\views.py                               58     58     0%   4-100
+catalog\__init__.py                                0      0   100%
+catalog\admin.py                                  32      0   100%
+catalog\apps.py                                    5      0   100%
+catalog\migrations\0001_initial.py                 9      0   100%
+catalog\migrations\__init__.py                     0      0   100%
+catalog\models.py                                 92      6    93%   33, 61, 110, 115, 120, 148
+catalog\permissions.py                            12     12     0%   4-27
+catalog\serializers.py                            32     32     0%   4-51
+catalog\services\__init__.py                       0      0   100%
+catalog\services\session_generator.py             40     40     0%   4-115
+catalog\tests.py                                 158    128    19%   17-24, 28-33, 37-40, 44-50, 54-57, 61-66, 75-85, 89-95, 99-106, 115-131, 135-150, 154-189, 193-218, 227-251, 255-279, 283-311, 315-344
+catalog\urls.py                                   10     10     0%   4-15
+catalog\views.py                                  95     95     0%   4-164
+certificates\__init__.py                           0      0   100%
+certificates\admin.py                             12      0   100%
+certificates\apps.py                               5      0   100%
+certificates\migrations\0001_initial.py            8      0   100%
+certificates\migrations\__init__.py                0      0   100%
+certificates\models.py                            42     11    74%   56, 60-64, 68-75
+certificates\permissions.py                        8      8     0%   4-17
+certificates\serializers.py                       28     28     0%   4-40
+certificates\services\__init__.py                  0      0   100%
+certificates\services\certificate_service.py      56     56     0%   4-115
+certificates\services\pdf_generator.py            28     28     0%   4-125
+certificates\tests.py                              1      1     0%   1
+certificates\urls.py                               6      6     0%   4-11
+certificates\views.py                             99     99     0%   4-163
+conftest.py                                       29     10    66%   15, 21, 35, 47, 59-60, 66-67, 73-74
+documents\__init__.py                              0      0   100%
+documents\admin.py                                 9      0   100%
+documents\apps.py                                  5      0   100%
+documents\migrations\0001_initial.py               8      0   100%
+documents\migrations\__init__.py                   0      0   100%
+documents\models.py                               25      1    96%   51
+documents\permissions.py                           6      6     0%   4-13
+documents\serializers.py                          15     15     0%   4-24
+documents\tests.py                                 1      1     0%   1
+documents\urls.py                                  6      6     0%   4-11
+documents\views.py                                23     23     0%   4-39
+gallery\__init__.py                                0      0   100%
+gallery\admin.py                                   7      0   100%
+gallery\apps.py                                    4      0   100%
+gallery\models.py                                 23      1    96%   35
+gallery\serializers.py                             7      7     0%   1-9
+gallery\tests.py                                  11     11     0%   1-14
+gallery\urls.py                                    6      6     0%   1-9
+gallery\views.py                                  33     33     0%   1-41
+manage.py                                         11     11     0%   3-22
+notifications\__init__.py                          0      0   100%
+notifications\admin.py                             1      0   100%
+notifications\apps.py                              5      0   100%
+notifications\migrations\0001_initial.py           6      0   100%
+notifications\migrations\__init__.py               0      0   100%
+notifications\models.py                           10      0   100%
+notifications\tests.py                             1      1     0%   1
+notifications\views.py                             1      1     0%   1
+ops\__init__.py                                    0      0   100%
+ops\admin.py                                       1      0   100%
+ops\apps.py                                        5      0   100%
+ops\migrations\__init__.py                         0      0   100%
+ops\models.py                                      1      0   100%
+ops\tests.py                                       1      1     0%   1
+ops\views.py                                       1      1     0%   1
+reporting\__init__.py                              0      0   100%
+reporting\admin.py                                 1      0   100%
+reporting\apps.py                                  5      0   100%
+reporting\migrations\__init__.py                   0      0   100%
+reporting\models.py                                1      0   100%
+reporting\tests.py                                 1      1     0%   1
+reporting\urls.py                                  3      3     0%   4-13
+reporting\views.py                                86     86     0%   4-169
+test_postgres_connection.py                       42     42     0%   5-55
+timekeeping\__init__.py                            0      0   100%
+timekeeping\admin.py                              30      9    70%   22-30
+timekeeping\apps.py                                9      2    78%   12-14
+timekeeping\models.py                             59      2    97%   31, 67
+timekeeping\serializers.py                        17     17     0%   1-23
+timekeeping\signals.py                            14      6    57%   17-23
+timekeeping\tasks.py                               6      6     0%   1-9
+timekeeping\tests.py                              16     16     0%   1-19
+timekeeping\urls.py                                8      8     0%   1-11
+timekeeping\views.py                              65     65     0%   1-94
+update_password.py                                29     29     0%   5-53
+----------------------------------------------------------------------------
+TOTAL                                           2604   1716    34%
+Coverage HTML written to dir htmlcov
+Coverage XML written to file coverage.xml
+
+=========================== short test summary info ===========================
+ERROR accounts/tests.py::TestUserModel::test_create_user - django.db.utils.ProgrammingError: relation "users" does not exist
+ERROR accounts/tests.py::TestUserModel::test_create_superuser - django.db.utils.ProgrammingError: relation "users" does not exist
+ERROR accounts/tests.py::TestUserModel::test_user_str - django.db.utils.ProgrammingError: relation "users" does not exist
+ERROR accounts/tests.py::TestUserModel::test_user_properties - django.db.utils.ProgrammingError: relation "users" does not exist
+ERROR accounts/tests.py::TestAuthenticationAPI::test_login_success - django.db.utils.ProgrammingError: relation "users" does not exist
+ERROR accounts/tests.py::TestAuthenticationAPI::test_login_invalid_credentials - django.db.utils.ProgrammingError: relation "users" does not exist
+ERROR accounts/tests.py::TestAuthenticationAPI::test_login_missing_fields - django.db.utils.ProgrammingError: relation "users" does not exist
+ERROR accounts/tests.py::TestAuthenticationAPI::test_get_current_user - django.db.utils.ProgrammingError: relation "users" does not exist
+ERROR accounts/tests.py::TestAuthenticationAPI::test_update_current_user - django.db.utils.ProgrammingError: relation "users" does not exist
+ERROR accounts/tests.py::TestUserManagementAPI::test_list_users_as_admin - django.db.utils.ProgrammingError: relation "users" does not exist
+ERROR accounts/tests.py::TestUserManagementAPI::test_list_users_as_student_forbidden - django.db.utils.ProgrammingError: relation "users" does not exist
+ERROR accounts/tests.py::TestUserManagementAPI::test_create_user_as_admin - django.db.utils.ProgrammingError: relation "users" does not exist
+ERROR accounts/tests.py::TestUserManagementAPI::test_update_user_as_admin - django.db.utils.ProgrammingError: relation "users" does not exist
+ERROR accounts/tests.py::TestUserManagementAPI::test_delete_user_as_admin - django.db.utils.ProgrammingError: relation "users" does not exist
+ERROR catalog/tests.py::TestProgramAPI::test_create_program - django.db.utils.ProgrammingError: relation "users" does not exist
+ERROR catalog/tests.py::TestProgramAPI::test_list_programs - django.db.utils.ProgrammingError: relation "users" does not exist
+ERROR catalog/tests.py::TestProgramAPI::test_get_program - django.db.utils.ProgrammingError: relation "users" does not exist
+ERROR catalog/tests.py::TestProgramAPI::test_update_program - django.db.utils.ProgrammingError: relation "users" does not exist
+ERROR catalog/tests.py::TestProgramAPI::test_delete_program - django.db.utils.ProgrammingError: relation "users" does not exist
+ERROR catalog/tests.py::TestProgramAPI::test_search_programs - django.db.utils.ProgrammingError: relation "users" does not exist
+ERROR catalog/tests.py::TestCourseAPI::test_create_course - django.db.utils.ProgrammingError: relation "users" does not exist
+ERROR catalog/tests.py::TestCourseAPI::test_list_courses - django.db.utils.ProgrammingError: relation "users" does not exist
+ERROR catalog/tests.py::TestCourseAPI::test_filter_courses_by_program - django.db.utils.ProgrammingError: relation "users" does not exist
+ERROR catalog/tests.py::TestCohortAPI::test_create_cohort - django.db.utils.ProgrammingError: relation "users" does not exist
+ERROR catalog/tests.py::TestCohortAPI::test_list_cohorts - django.db.utils.ProgrammingError: relation "users" does not exist
+ERROR catalog/tests.py::TestCohortAPI::test_lecturer_sees_only_own_cohorts - django.db.utils.ProgrammingError: relation "users" does not exist
+ERROR catalog/tests.py::TestCohortAPI::test_generate_sessions - django.db.utils.ProgrammingError: relation "users" does not exist
+ERROR catalog/tests.py::TestSessionAPI::test_create_session - django.db.utils.ProgrammingError: relation "users" does not exist
+ERROR catalog/tests.py::TestSessionAPI::test_list_sessions - django.db.utils.ProgrammingError: relation "users" does not exist
+ERROR catalog/tests.py::TestSessionAPI::test_filter_sessions_by_cohort - django.db.utils.ProgrammingError: relation "users" does not exist
+ERROR catalog/tests.py::TestSessionAPI::test_cancel_session - django.db.utils.ProgrammingError: relation "users" does not exist
+ERROR admissions/tests.py::TestApplicationAPI::test_create_application - django.db.utils.ProgrammingError: relation "users" does not exist
+ERROR admissions/tests.py::TestApplicationAPI::test_list_applications - django.db.utils.ProgrammingError: relation "users" does not exist
+ERROR admissions/tests.py::TestApplicationAPI::test_accept_application - django.db.utils.ProgrammingError: relation "users" does not exist
+ERROR admissions/tests.py::TestEnrollmentAPI::test_create_enrollment - django.db.utils.ProgrammingError: relation "users" does not exist
+ERROR admissions/tests.py::TestEnrollmentAPI::test_activate_enrollment - django.db.utils.ProgrammingError: relation "users" does not exist
+ERROR attendance/tests.py::TestAttendanceAPI::test_create_attendance_record - django.db.utils.ProgrammingError: relation "users" does not exist
+ERROR attendance/tests.py::TestAttendanceAPI::test_list_attendance_records - django.db.utils.ProgrammingError: relation "users" does not exist
+ERROR attendance/tests.py::TestAttendanceAPI::test_update_attendance_status - django.db.utils.ProgrammingError: relation "users" does not exist
+ERROR assessment/tests.py::TestAssessmentAPI::test_create_assessment - django.db.utils.ProgrammingError: relation "users" does not exist
+ERROR assessment/tests.py::TestAssessmentAPI::test_list_assessments - django.db.utils.ProgrammingError: relation "users" does not exist
+ERROR assessment/tests.py::TestSubmissionAPI::test_create_submission - django.db.utils.ProgrammingError: relation "users" does not exist
+ERROR assessment/tests.py::TestGradeAPI::test_create_grade - django.db.utils.ProgrammingError: relation "users" does not exist
+======================= 1 warning, 43 errors in 28.07s ========================

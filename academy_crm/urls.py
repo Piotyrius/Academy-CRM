@@ -22,15 +22,15 @@ urlpatterns = [
     
     # API v1
     path('api/v1/', include('accounts.urls')),
-    path('api/v1/', include('catalog.urls')),
-    path('api/v1/', include('admissions.urls')),
-    path('api/v1/', include('attendance.urls')),
-    path('api/v1/', include('assessment.urls')),
-    path('api/v1/', include('certificates.urls')),
-    path('api/v1/', include('documents.urls')),
-    path('api/v1/', include('reporting.urls')),
-    path('api/v1/', include('timekeeping.urls')),
-    path('api/v1/', include('gallery.urls')),
+    path('api/v1/catalog/', include('catalog.urls')),
+    path('api/v1/admissions/', include('admissions.urls')),
+    path('api/v1/attendance/', include('attendance.urls')),
+    path('api/v1/assessment/', include('assessment.urls')),
+    path('api/v1/certificates/', include('certificates.urls')),
+    path('api/v1/documents/', include('documents.urls')),
+    path('api/v1/reporting/', include('reporting.urls')),
+    path('api/v1/timekeeping/', include('timekeeping.urls')),
+    path('api/v1/gallery/', include('gallery.urls')),
 ]
 
 # Serve media files in development
