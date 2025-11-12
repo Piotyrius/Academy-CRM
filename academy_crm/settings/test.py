@@ -51,3 +51,4 @@ EMAIL_BACKEND = 'django.core.mail.backends.locmem.EmailBackend'
 # CORS
 CORS_ALLOW_ALL_ORIGINS = True
 
+

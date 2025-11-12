@@ -73,3 +73,4 @@ def authenticated_student_client(api_client, student_user):
     api_client.force_authenticate(user=student_user)
     return api_client
 
+

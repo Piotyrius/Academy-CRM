@@ -26,6 +26,19 @@ class WorkLogViewSet(viewsets.ModelViewSet):
         if getattr(user, 'is_admin', False):
             return qs
         return qs.filter(lecturer=user)
+    
+    def perform_create(self, serializer):
+        """Auto-assign lecturer from authenticated user for non-admin users."""
+        user = self.request.user
+        if not getattr(user, 'is_admin', False):
+            # Non-admin users (lecturers) are automatically assigned as lecturer
+            serializer.save(lecturer=user)
+        else:
+            # Admin can specify lecturer, but default to current user if not provided
+            if 'lecturer' not in serializer.validated_data:
+                serializer.save(lecturer=user)
+            else:
+                serializer.save()
 
 
 class RateViewSet(viewsets.ModelViewSet):
@@ -33,6 +46,11 @@ class RateViewSet(viewsets.ModelViewSet):
     serializer_class = RateSerializer
     permission_classes = [IsAdmin]
     filterset_fields = ['lecturer', 'active', 'currency']
+    
+    def perform_create(self, serializer):
+        """Admin can create rates for any lecturer."""
+        # Admin must specify lecturer explicitly
+        serializer.save()
 
 
 class TimesheetViewSet(viewsets.ModelViewSet):
@@ -48,6 +66,19 @@ class TimesheetViewSet(viewsets.ModelViewSet):
         if getattr(user, 'is_admin', False):
             return qs
         return qs.filter(lecturer=user)
+    
+    def perform_create(self, serializer):
+        """Auto-assign lecturer from authenticated user for non-admin users."""
+        user = self.request.user
+        if not getattr(user, 'is_admin', False):
+            # Non-admin users (lecturers) are automatically assigned as lecturer
+            serializer.save(lecturer=user)
+        else:
+            # Admin can specify lecturer, but default to current user if not provided
+            if 'lecturer' not in serializer.validated_data:
+                serializer.save(lecturer=user)
+            else:
+                serializer.save()
 
 
 @decorators.api_view(['GET'])
