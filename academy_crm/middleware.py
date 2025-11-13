@@ -36,6 +36,21 @@ class RenderHostMiddleware(MiddlewareMixin):
                 # Also add without port variations
                 if f'{host}:8000' not in settings.ALLOWED_HOSTS:
                     settings.ALLOWED_HOSTS.append(f'{host}:8000')
+            
+            # Patch request.get_host() to bypass validation for Render domains
+            # This prevents DisallowedHost exception before CommonMiddleware runs
+            original_get_host = request.get_host
+            
+            def patched_get_host():
+                try:
+                    return original_get_host()
+                except DisallowedHost:
+                    # If validation fails but it's a Render domain, return the host anyway
+                    if host.endswith('.onrender.com'):
+                        return host_header if host_header else host
+                    raise
+            
+            request.get_host = patched_get_host
         
         return None
 
@@ -61,7 +76,31 @@ class RenderCommonMiddleware(CommonMiddleware):
                 settings.ALLOWED_HOSTS = list(settings.ALLOWED_HOSTS)
             if host not in settings.ALLOWED_HOSTS:
                 settings.ALLOWED_HOSTS.append(host)
+            
+            # Also patch get_host() here as a backup
+            original_get_host = request.get_host
+            def patched_get_host():
+                try:
+                    return original_get_host()
+                except DisallowedHost:
+                    if host.endswith('.onrender.com'):
+                        return host_header if host_header else host
+                    raise
+            request.get_host = patched_get_host
         
         # Call parent CommonMiddleware
-        return super().process_request(request)
+        try:
+            return super().process_request(request)
+        except DisallowedHost as e:
+            # Catch DisallowedHost and allow Render domains
+            if host and host.endswith('.onrender.com'):
+                # Add to ALLOWED_HOSTS and retry
+                from django.conf import settings
+                if isinstance(settings.ALLOWED_HOSTS, tuple):
+                    settings.ALLOWED_HOSTS = list(settings.ALLOWED_HOSTS)
+                if host not in settings.ALLOWED_HOSTS:
+                    settings.ALLOWED_HOSTS.append(host)
+                # Retry the parent method
+                return super().process_request(request)
+            raise
 
