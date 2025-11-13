@@ -10,6 +10,38 @@ DEBUG = False
 # ALLOWED_HOSTS - filter out empty strings from comma-separated list
 ALLOWED_HOSTS = [host.strip() for host in os.getenv('ALLOWED_HOSTS', '').split(',') if host.strip()]
 
+# Automatically allow Render.com subdomains
+# Render sets RENDER_EXTERNAL_HOSTNAME, or we can detect by checking if we're on Render
+render_external_hostname = os.getenv('RENDER_EXTERNAL_HOSTNAME')
+if render_external_hostname:
+    # Add the Render-provided hostname if not already in the list
+    if render_external_hostname not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append(render_external_hostname)
+    
+    # Also add the base onrender.com pattern for flexibility
+    # Extract the service name and add common Render patterns
+    if '.onrender.com' in render_external_hostname:
+        # Add common Render hostname patterns
+        base_domain = render_external_hostname.split('.onrender.com')[0]
+        if base_domain:
+            # Add variations that Render might use
+            render_hosts = [
+                render_external_hostname,
+                f'{base_domain}.onrender.com',
+            ]
+            for host in render_hosts:
+                if host not in ALLOWED_HOSTS:
+                    ALLOWED_HOSTS.append(host)
+
+# Fallback: If still empty and we're likely on Render, allow common patterns
+if not ALLOWED_HOSTS:
+    # Check if we're on Render infrastructure
+    if os.getenv('RENDER') or os.getenv('RENDER_EXTERNAL_HOSTNAME'):
+        # On Render but no ALLOWED_HOSTS set - this shouldn't happen, but provide fallback
+        ALLOWED_HOSTS = ['localhost', '127.0.0.1']
+    else:
+        ALLOWED_HOSTS = ['localhost', '127.0.0.1']
+
 # Security settings
 SECURE_SSL_REDIRECT = True
 SESSION_COOKIE_SECURE = True
