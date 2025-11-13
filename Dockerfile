@@ -12,9 +12,9 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy and install Python dependencies
+# Copy and install Python dependencies globally
 COPY requirements/ /app/requirements/
-RUN pip install --no-cache-dir --user -r requirements/prod.txt
+RUN pip install --no-cache-dir -r requirements/prod.txt
 
 # Production stage
 FROM python:3.11-slim
@@ -28,11 +28,9 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy Python dependencies from builder
-COPY --from=builder /root/.local /root/.local
-
-# Make sure scripts in .local are usable
-ENV PATH=/root/.local/bin:$PATH
+# Copy Python dependencies from builder (global installation)
+COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
 
 # Create non-root user for security
 RUN useradd -m -u 1000 appuser && \
@@ -42,18 +40,18 @@ RUN useradd -m -u 1000 appuser && \
 # Copy project files
 COPY --chown=appuser:appuser . /app/
 
-# Make scripts executable
+# Make scripts executable (as root before switching users)
 RUN chmod +x /app/scripts/*.sh || true
-
-# Switch to non-root user
-USER appuser
 
 # Set Python environment variables
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
 
-# Collect static files
+# Collect static files (before switching to appuser, Django is now globally available)
 RUN python manage.py collectstatic --noinput || true
+
+# Switch to non-root user
+USER appuser
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
