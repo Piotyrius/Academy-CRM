@@ -72,7 +72,15 @@ if SENTRY_DSN:
 # CORS - restrict in prod
 # Filter out empty strings from comma-separated list
 CORS_ALLOWED_ORIGINS = [origin.strip() for origin in os.getenv('CORS_ALLOWED_ORIGINS', '').split(',') if origin.strip()]
-CORS_ALLOW_CREDENTIALS = True
+
+# If no CORS origins specified (backend-only deployment), allow all for API testing
+# You can restrict this later when you add a frontend
+if not CORS_ALLOWED_ORIGINS:
+    # Allow all origins for backend-only deployment (you can restrict later)
+    CORS_ALLOW_ALL_ORIGINS = True
+else:
+    CORS_ALLOW_ALL_ORIGINS = False
+    CORS_ALLOW_CREDENTIALS = True
 
 # Static files serving in production
 # Note: For better performance, consider adding WhiteNoise middleware
