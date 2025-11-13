@@ -8,7 +8,14 @@ from sentry_sdk.integrations.django import DjangoIntegration
 DEBUG = False
 
 # ALLOWED_HOSTS - filter out empty strings from comma-separated list
-ALLOWED_HOSTS = [host.strip() for host in os.getenv('ALLOWED_HOSTS', '').split(',') if host.strip()]
+allowed_hosts_env = os.getenv('ALLOWED_HOSTS', '')
+ALLOWED_HOSTS = [host.strip() for host in allowed_hosts_env.split(',') if host.strip()]
+
+# Debug: Log ALLOWED_HOSTS for troubleshooting (remove in production if needed)
+import logging
+logger = logging.getLogger(__name__)
+logger.info(f"ALLOWED_HOSTS from env: {allowed_hosts_env}")
+logger.info(f"ALLOWED_HOSTS parsed: {ALLOWED_HOSTS}")
 
 # Automatically allow Render.com subdomains
 # Render sets RENDER_EXTERNAL_HOSTNAME environment variable
