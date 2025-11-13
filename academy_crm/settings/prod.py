@@ -11,7 +11,7 @@ DEBUG = False
 ALLOWED_HOSTS = [host.strip() for host in os.getenv('ALLOWED_HOSTS', '').split(',') if host.strip()]
 
 # Automatically allow Render.com subdomains
-# Render sets RENDER_EXTERNAL_HOSTNAME, or we can detect by checking if we're on Render
+# Render sets RENDER_EXTERNAL_HOSTNAME environment variable
 render_external_hostname = os.getenv('RENDER_EXTERNAL_HOSTNAME')
 if render_external_hostname:
     # Add the Render-provided hostname if not already in the list
@@ -33,12 +33,25 @@ if render_external_hostname:
                 if host not in ALLOWED_HOSTS:
                     ALLOWED_HOSTS.append(host)
 
-# Fallback: If still empty and we're likely on Render, allow common patterns
+# Also check if we're on Render infrastructure (even without RENDER_EXTERNAL_HOSTNAME)
+# Render sets RENDER environment variable
+if os.getenv('RENDER') == 'true' or os.getenv('RENDER'):
+    # We're on Render - ensure we allow common Render patterns
+    # The middleware will handle specific hostnames at runtime
+    pass  # Middleware will add specific hosts
+
+# Fallback: If still empty, set minimal defaults
 if not ALLOWED_HOSTS:
     # Check if we're on Render infrastructure
     if os.getenv('RENDER') or os.getenv('RENDER_EXTERNAL_HOSTNAME'):
-        # On Render but no ALLOWED_HOSTS set - this shouldn't happen, but provide fallback
+        # On Render but no ALLOWED_HOSTS set - middleware will handle it
+        # But set a minimal default to avoid issues
+        # The middleware will add the actual Render hostname at runtime
         ALLOWED_HOSTS = ['localhost', '127.0.0.1']
+        # Try to get from RENDER_EXTERNAL_HOSTNAME if available
+        render_host = os.getenv('RENDER_EXTERNAL_HOSTNAME')
+        if render_host:
+            ALLOWED_HOSTS.append(render_host)
     else:
         ALLOWED_HOSTS = ['localhost', '127.0.0.1']
 

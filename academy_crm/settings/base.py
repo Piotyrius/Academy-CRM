@@ -58,7 +58,7 @@ MIDDLEWARE = [
     'academy_crm.middleware.RenderHostMiddleware',  # Allow Render subdomains
     'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
-    'django.middleware.common.CommonMiddleware',
+    'academy_crm.middleware.RenderCommonMiddleware',  # Custom CommonMiddleware that allows Render hosts
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
