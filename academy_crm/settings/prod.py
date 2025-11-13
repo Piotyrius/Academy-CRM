@@ -7,7 +7,8 @@ from sentry_sdk.integrations.django import DjangoIntegration
 
 DEBUG = False
 
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '').split(',')
+# ALLOWED_HOSTS - filter out empty strings from comma-separated list
+ALLOWED_HOSTS = [host.strip() for host in os.getenv('ALLOWED_HOSTS', '').split(',') if host.strip()]
 
 # Security settings
 SECURE_SSL_REDIRECT = True
@@ -37,5 +38,12 @@ if SENTRY_DSN:
     )
 
 # CORS - restrict in prod
-CORS_ALLOWED_ORIGINS = os.getenv('CORS_ALLOWED_ORIGINS', '').split(',')
+# Filter out empty strings from comma-separated list
+CORS_ALLOWED_ORIGINS = [origin.strip() for origin in os.getenv('CORS_ALLOWED_ORIGINS', '').split(',') if origin.strip()]
 CORS_ALLOW_CREDENTIALS = True
+
+# Static files serving in production
+# Note: For better performance, consider adding WhiteNoise middleware
+# For now, Django will serve static files from STATIC_ROOT
+# In production with a reverse proxy, static files should be served by the web server
+STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.ManifestStaticFilesStorage'

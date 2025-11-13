@@ -1,0 +1,90 @@
+version: '3.8'
+
+# Production Docker Compose Reference
+# This file is for reference only - Render.com uses individual services
+# Use this as a template for understanding service structure
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: gunicorn academy_crm.wsgi:application --bind 0.0.0.0:8000 --workers 4 --timeout 120 --access-logfile - --error-logfile -
+    restart: unless-stopped
+    environment:
+      - DJANGO_ENV=prod
+      - SECRET_KEY=${SECRET_KEY}
+      - DB_HOST=${DB_HOST}
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_PORT=${DB_PORT}
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS}
+      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS}
+      - REDIS_URL=${REDIS_URL}
+      - USE_REDIS=${USE_REDIS:-True}
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL}
+      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND}
+      - SENTRY_DSN=${SENTRY_DSN}
+      - EMAIL_HOST=${EMAIL_HOST}
+      - EMAIL_PORT=${EMAIL_PORT}
+      - EMAIL_HOST_USER=${EMAIL_HOST_USER}
+      - EMAIL_HOST_PASSWORD=${EMAIL_HOST_PASSWORD}
+      - DEFAULT_FROM_EMAIL=${DEFAULT_FROM_EMAIL}
+    volumes:
+      - media_data:/app/media
+      - static_data:/app/staticfiles
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: celery -A academy_crm worker -l info --concurrency=4 --max-tasks-per-child=1000
+    restart: unless-stopped
+    environment:
+      - DJANGO_ENV=prod
+      - SECRET_KEY=${SECRET_KEY}
+      - DB_HOST=${DB_HOST}
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_PORT=${DB_PORT}
+      - REDIS_URL=${REDIS_URL}
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL}
+      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND}
+      - SENTRY_DSN=${SENTRY_DSN}
+    volumes:
+      - media_data:/app/media
+    depends_on:
+      - api
+
+  beat:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: celery -A academy_crm beat -l info
+    restart: unless-stopped
+    environment:
+      - DJANGO_ENV=prod
+      - SECRET_KEY=${SECRET_KEY}
+      - DB_HOST=${DB_HOST}
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_PORT=${DB_PORT}
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL}
+      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND}
+    depends_on:
+      - api
+      - worker
+
+volumes:
+  media_data:
+  static_data:
+
