@@ -5,14 +5,17 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
+    """
+    Add organization field to User model.
+    
+    IMPORTANT: This migration must run AFTER subscriptions.0001_initial
+    to ensure Organization table exists before adding the ForeignKey.
+    """
 
     dependencies = [
         ("accounts", "0001_initial"),
         ("auth", "0012_alter_user_first_name_max_length"),
-        (
-            "subscriptions",
-            "0002_rename_billings_organization_idx_billings_organiz_190951_idx_and_more",
-        ),
+        ("subscriptions", "0001_initial"),  # Must run after Organization table is created
     ]
 
     operations = [

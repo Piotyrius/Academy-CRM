@@ -10,10 +10,7 @@ class Migration(migrations.Migration):
     dependencies = [
         ("assessment", "0001_initial"),
         ("catalog", "0002_cohort_organization_course_organization_and_more"),
-        (
-            "subscriptions",
-            "0002_rename_billings_organization_idx_billings_organiz_190951_idx_and_more",
-        ),
+        ("subscriptions", "0001_initial"),  # Depend on initial, not 0002
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
