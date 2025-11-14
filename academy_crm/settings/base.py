@@ -34,8 +34,8 @@ INSTALLED_APPS = [
     'drf_spectacular',
     'health_check',
     'health_check.db',
-    'health_check.cache',
-    'health_check.storage',
+    # 'health_check.cache',  # Will be conditionally added if Redis is enabled
+    # 'health_check.storage',  # Disabled - only enable if using cloud storage
     'axes',
     
     # Local apps
@@ -267,6 +267,9 @@ if USE_REDIS:
             }
         }
     }
+    # Enable cache health check only if Redis is configured
+    if 'health_check.cache' not in INSTALLED_APPS:
+        INSTALLED_APPS.append('health_check.cache')
 else:
     # Use dummy cache for development when Redis is not available
     CACHES = {
@@ -274,6 +277,9 @@ else:
             'BACKEND': 'django.core.cache.backends.dummy.DummyCache',
         }
     }
+    # Remove cache health check if using dummy cache (it will fail)
+    if 'health_check.cache' in INSTALLED_APPS:
+        INSTALLED_APPS.remove('health_check.cache')
 
 # Celery
 CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', 'redis://localhost:6379/0')
