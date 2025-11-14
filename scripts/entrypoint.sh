@@ -3,8 +3,8 @@ set -e
 
 echo "Starting Academy CRM entrypoint script..."
 
-# Wait for database to be ready
-if [ -n "$DB_HOST" ]; then
+# Wait for database to be ready (only if DB_HOST is set and not a full URL)
+if [ -n "$DB_HOST" ] && [[ ! "$DB_HOST" =~ ^postgresql:// ]]; then
     echo "Waiting for database to be ready..."
     max_attempts=30
     attempt=0
@@ -19,16 +19,18 @@ if [ -n "$DB_HOST" ]; then
     else
         echo "Database is ready!"
     fi
+else
+    echo "Skipping database wait (DB_HOST not set or is a full URL - fix in Render environment variables)"
 fi
 
-# Run migrations (can be disabled with AUTO_MIGRATE=false)
-if [ "${AUTO_MIGRATE:-true}" = "true" ]; then
+# Run migrations (disabled by default, enable with AUTO_MIGRATE=true)
+if [ "${AUTO_MIGRATE:-false}" = "true" ]; then
     echo "Running database migrations (AUTO_MIGRATE=true)..."
     python manage.py migrate --noinput || {
         echo "WARNING: Migrations failed, but continuing..."
     }
 else
-    echo "Skipping migrations (AUTO_MIGRATE=false)"
+    echo "Skipping migrations (AUTO_MIGRATE=false, set AUTO_MIGRATE=true to enable)"
 fi
 
 # Collect static files (if not already done in build)

@@ -64,4 +64,5 @@ ENTRYPOINT ["/app/scripts/entrypoint.sh"]
 
 # Default command (can be overridden)
 # Uses PORT environment variable for Render.com compatibility
-CMD ["gunicorn", "academy_crm.wsgi:application", "--bind", "0.0.0.0:${PORT:-8000}", "--workers", "4", "--timeout", "120", "--access-logfile", "-", "--error-logfile", "-"]
+# Using shell form to allow environment variable expansion
+CMD gunicorn academy_crm.wsgi:application --bind "0.0.0.0:${PORT:-8000}" --workers 4 --timeout 120 --access-logfile - --error-logfile -
