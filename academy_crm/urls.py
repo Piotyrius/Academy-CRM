@@ -15,10 +15,21 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('health/', include('health_check.urls')),
     
-    # API Documentation
-    path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
-    path('api/docs/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
-    path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
+    # API Documentation (publicly accessible for frontend developers)
+    path('api/docs/', SpectacularSwaggerView.as_view(
+        url_name='schema',
+        authentication_classes=[],
+        permission_classes=[]
+    ), name='swagger-ui'),
+    path('api/docs/redoc/', SpectacularRedocView.as_view(
+        url_name='schema',
+        authentication_classes=[],
+        permission_classes=[]
+    ), name='redoc'),
+    path('api/schema/', SpectacularAPIView.as_view(
+        authentication_classes=[],
+        permission_classes=[]
+    ), name='schema'),
     
     # API v1
     path('api/v1/', include('accounts.urls')),

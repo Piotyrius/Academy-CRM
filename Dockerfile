@@ -59,6 +59,9 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
 
 EXPOSE 8000
 
+# Set entrypoint to run migrations and create superuser automatically
+ENTRYPOINT ["/app/scripts/entrypoint.sh"]
+
 # Default command (can be overridden)
 # Uses PORT environment variable for Render.com compatibility
-CMD ["sh", "-c", "gunicorn academy_crm.wsgi:application --bind 0.0.0.0:${PORT:-8000} --workers 4 --timeout 120 --access-logfile - --error-logfile -"]
+CMD ["gunicorn", "academy_crm.wsgi:application", "--bind", "0.0.0.0:${PORT:-8000}", "--workers", "4", "--timeout", "120", "--access-logfile", "-", "--error-logfile", "-"]
