@@ -18,6 +18,14 @@ class CertificateStatus(models.TextChoices):
 class Certificate(models.Model):
     """Certificate model."""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    organization = models.ForeignKey(
+        'subscriptions.Organization',
+        on_delete=models.CASCADE,
+        related_name='certificates',
+        null=True,
+        blank=True,
+        help_text=_('Organization this certificate belongs to')
+    )
     student = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
@@ -45,6 +53,7 @@ class Certificate(models.Model):
         verbose_name_plural = _('certificates')
         ordering = ['-issued_at']
         indexes = [
+            models.Index(fields=['organization']),
             models.Index(fields=['student']),
             models.Index(fields=['cohort']),
             models.Index(fields=['serial']),

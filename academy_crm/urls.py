@@ -41,6 +41,7 @@ urlpatterns = [
     ), name='redoc-slash'),
     
     # API v1
+    path('api/v1/subscriptions/', include('subscriptions.urls')),  # Subscription management
     path('api/v1/', include('accounts.urls')),
     path('api/v1/catalog/', include('catalog.urls')),
     path('api/v1/admissions/', include('admissions.urls')),

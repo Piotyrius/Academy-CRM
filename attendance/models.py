@@ -18,6 +18,14 @@ class AttendanceStatus(models.TextChoices):
 class AttendanceRecord(models.Model):
     """Attendance record model."""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    organization = models.ForeignKey(
+        'subscriptions.Organization',
+        on_delete=models.CASCADE,
+        related_name='attendance_records',
+        null=True,
+        blank=True,
+        help_text=_('Organization this attendance record belongs to')
+    )
     session = models.ForeignKey(Session, on_delete=models.CASCADE, related_name='attendance_records')
     student = models.ForeignKey(
         User,
@@ -47,6 +55,7 @@ class AttendanceRecord(models.Model):
         verbose_name_plural = _('attendance records')
         unique_together = [['session', 'student']]
         indexes = [
+            models.Index(fields=['organization']),
             models.Index(fields=['session']),
             models.Index(fields=['student']),
             models.Index(fields=['status']),

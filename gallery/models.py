@@ -13,6 +13,14 @@ class WorkStatus(models.TextChoices):
 
 class Work(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    organization = models.ForeignKey(
+        'subscriptions.Organization',
+        on_delete=models.CASCADE,
+        related_name='works',
+        null=True,
+        blank=True,
+        help_text=_('Organization this work belongs to')
+    )
     owner = models.ForeignKey('accounts.User', on_delete=models.CASCADE, related_name='works')
     title = models.CharField(max_length=200)
     description = models.TextField(blank=True)
@@ -27,6 +35,7 @@ class Work(models.Model):
         db_table = 'gallery_works'
         ordering = ['-created_at']
         indexes = [
+            models.Index(fields=['organization']),
             models.Index(fields=['owner']),
             models.Index(fields=['status', 'is_public']),
         ]

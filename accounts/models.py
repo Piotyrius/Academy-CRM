@@ -5,6 +5,7 @@ import uuid
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
 from django.utils.translation import gettext_lazy as _
+from django.core.exceptions import ValidationError
 
 
 class Role(models.TextChoices):
@@ -17,11 +18,16 @@ class Role(models.TextChoices):
 class UserManager(BaseUserManager):
     """Custom user manager."""
     
-    def create_user(self, email, password=None, **extra_fields):
+    def create_user(self, email, password=None, organization=None, **extra_fields):
         """Create and save a regular user."""
         if not email:
             raise ValueError('The Email field must be set')
         email = self.normalize_email(email)
+        
+        # Set organization if provided
+        if organization:
+            extra_fields['organization'] = organization
+        
         user = self.model(email=email, **extra_fields)
         user.set_password(password)
         user.save(using=self._db)
@@ -58,6 +64,16 @@ class User(AbstractUser):
     mfa_enabled = models.BooleanField(default=False, help_text=_('Multi-factor authentication enabled'))
     mfa_secret = models.CharField(max_length=32, blank=True, help_text=_('MFA secret key'))
     
+    # Organization/tenant relationship (nullable for backward compatibility during migration)
+    organization = models.ForeignKey(
+        'subscriptions.Organization',
+        on_delete=models.PROTECT,
+        related_name='users',
+        null=True,
+        blank=True,
+        help_text=_('Organization this user belongs to')
+    )
+    
     # Override username to use email
     username = None
     
@@ -74,6 +90,7 @@ class User(AbstractUser):
             models.Index(fields=['email']),
             models.Index(fields=['role']),
             models.Index(fields=['is_active']),
+            models.Index(fields=['organization']),
         ]
     
     def __str__(self):

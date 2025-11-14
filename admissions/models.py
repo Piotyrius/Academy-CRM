@@ -19,6 +19,14 @@ class ApplicationStatus(models.TextChoices):
 class Application(models.Model):
     """Application model for student applications."""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    organization = models.ForeignKey(
+        'subscriptions.Organization',
+        on_delete=models.CASCADE,
+        related_name='applications',
+        null=True,
+        blank=True,
+        help_text=_('Organization this application belongs to')
+    )
     name = models.CharField(max_length=200)
     phone = models.CharField(max_length=20)
     email = models.EmailField()
@@ -42,6 +50,7 @@ class Application(models.Model):
         verbose_name_plural = _('applications')
         ordering = ['-created_at']
         indexes = [
+            models.Index(fields=['organization']),
             models.Index(fields=['status']),
             models.Index(fields=['program']),
             models.Index(fields=['email']),
@@ -63,6 +72,14 @@ class EnrollmentStatus(models.TextChoices):
 class Enrollment(models.Model):
     """Enrollment model linking students to cohorts."""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    organization = models.ForeignKey(
+        'subscriptions.Organization',
+        on_delete=models.CASCADE,
+        related_name='enrollments',
+        null=True,
+        blank=True,
+        help_text=_('Organization this enrollment belongs to')
+    )
     student = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
@@ -88,6 +105,7 @@ class Enrollment(models.Model):
         ordering = ['-enrolled_at']
         unique_together = [['student', 'cohort']]
         indexes = [
+            models.Index(fields=['organization']),
             models.Index(fields=['student']),
             models.Index(fields=['cohort']),
             models.Index(fields=['status']),

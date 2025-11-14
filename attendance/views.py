@@ -6,25 +6,34 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db import transaction
 from django.utils import timezone
+from subscriptions.mixins import (
+    OrganizationFilterMixin, FeatureRequiredMixin, OrganizationAutoSetMixin
+)
 from .models import AttendanceRecord, AttendanceStatus
 from .serializers import AttendanceRecordSerializer, BulkAttendanceSerializer
 from .permissions import IsAdminOrLecturerOwner
 from catalog.models import Session
 
 
-class AttendanceRecordViewSet(viewsets.ModelViewSet):
+class AttendanceRecordViewSet(
+    FeatureRequiredMixin,
+    OrganizationFilterMixin,
+    OrganizationAutoSetMixin,
+    viewsets.ModelViewSet
+):
     """ViewSet for AttendanceRecord model."""
     queryset = AttendanceRecord.objects.select_related('session', 'student', 'marked_by').all()
     serializer_class = AttendanceRecordSerializer
     permission_classes = [permissions.IsAuthenticated]
+    required_feature = 'attendance'  # Require attendance module
     filterset_fields = ['session', 'student', 'status']
     search_fields = ['student__email', 'student__first_name', 'student__last_name']
     ordering_fields = ['marked_at', 'session__start_at']
     ordering = ['-marked_at']
     
     def get_queryset(self):
-        """Filter queryset based on user role."""
-        queryset = super().get_queryset()
+        """Filter queryset based on user role and organization."""
+        queryset = super().get_queryset()  # OrganizationFilterMixin handles organization filtering
         user = self.request.user
         
         # Students only see their own attendance

@@ -6,16 +6,25 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db import transaction, models
 from django.utils import timezone
+from subscriptions.mixins import (
+    OrganizationFilterMixin, FeatureRequiredMixin, OrganizationAutoSetMixin
+)
 from accounts.models import Role
 from .models import Application, Enrollment, ApplicationStatus, EnrollmentStatus
 from .serializers import ApplicationSerializer, EnrollmentSerializer
 from .permissions import IsAdminOrLecturerOwner
 
 
-class ApplicationViewSet(viewsets.ModelViewSet):
+class ApplicationViewSet(
+    FeatureRequiredMixin,
+    OrganizationFilterMixin,
+    OrganizationAutoSetMixin,
+    viewsets.ModelViewSet
+):
     """ViewSet for Application model."""
     queryset = Application.objects.select_related('program').all()
     serializer_class = ApplicationSerializer
+    required_feature = 'admissions'  # Require admissions module
     filterset_fields = ['status', 'program']
     search_fields = ['name', 'email', 'phone']
     ordering_fields = ['created_at', 'status']
@@ -85,10 +94,16 @@ class ApplicationViewSet(viewsets.ModelViewSet):
         return Response(serializer.data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 
 
-class EnrollmentViewSet(viewsets.ModelViewSet):
+class EnrollmentViewSet(
+    FeatureRequiredMixin,
+    OrganizationFilterMixin,
+    OrganizationAutoSetMixin,
+    viewsets.ModelViewSet
+):
     """ViewSet for Enrollment model."""
     queryset = Enrollment.objects.select_related('student', 'cohort').all()
     serializer_class = EnrollmentSerializer
+    required_feature = 'admissions'  # Require admissions module
     permission_classes = [permissions.IsAuthenticated]
     filterset_fields = ['status', 'cohort', 'student']
     search_fields = ['student__email', 'student__first_name', 'student__last_name', 'cohort__name']

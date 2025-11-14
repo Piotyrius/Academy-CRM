@@ -5,24 +5,33 @@ from rest_framework import viewsets, status, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.utils import timezone
+from subscriptions.mixins import (
+    OrganizationFilterMixin, FeatureRequiredMixin, OrganizationAutoSetMixin
+)
 from .models import Assessment, Submission, Grade
 from .serializers import AssessmentSerializer, SubmissionSerializer, GradeSerializer
 from .permissions import IsAdminOrLecturerOwner
 
 
-class AssessmentViewSet(viewsets.ModelViewSet):
+class AssessmentViewSet(
+    FeatureRequiredMixin,
+    OrganizationFilterMixin,
+    OrganizationAutoSetMixin,
+    viewsets.ModelViewSet
+):
     """ViewSet for Assessment model."""
     queryset = Assessment.objects.select_related('cohort').all()
     serializer_class = AssessmentSerializer
     permission_classes = [permissions.IsAuthenticated]
+    required_feature = 'assessment'  # Require assessment module
     filterset_fields = ['cohort', 'kind', 'published']
     search_fields = ['title', 'description']
     ordering_fields = ['due_at', 'created_at']
     ordering = ['-due_at']
     
     def get_queryset(self):
-        """Filter queryset based on user role."""
-        queryset = super().get_queryset()
+        """Filter queryset based on user role and organization."""
+        queryset = super().get_queryset()  # OrganizationFilterMixin handles organization filtering
         user = self.request.user
         
         # Students only see published assessments
@@ -35,18 +44,24 @@ class AssessmentViewSet(viewsets.ModelViewSet):
         return queryset
 
 
-class SubmissionViewSet(viewsets.ModelViewSet):
+class SubmissionViewSet(
+    FeatureRequiredMixin,
+    OrganizationFilterMixin,
+    OrganizationAutoSetMixin,
+    viewsets.ModelViewSet
+):
     """ViewSet for Submission model."""
     queryset = Submission.objects.select_related('assessment', 'student').all()
     serializer_class = SubmissionSerializer
     permission_classes = [permissions.IsAuthenticated]
+    required_feature = 'assessment'  # Require assessment module
     filterset_fields = ['assessment', 'student']
     ordering_fields = ['submitted_at']
     ordering = ['-submitted_at']
     
     def get_queryset(self):
-        """Filter queryset based on user role."""
-        queryset = super().get_queryset()
+        """Filter queryset based on user role and organization."""
+        queryset = super().get_queryset()  # OrganizationFilterMixin handles organization filtering
         user = self.request.user
         
         # Students only see their own submissions
@@ -69,18 +84,24 @@ class SubmissionViewSet(viewsets.ModelViewSet):
         serializer.save(student=student, late_flag=late_flag)
 
 
-class GradeViewSet(viewsets.ModelViewSet):
+class GradeViewSet(
+    FeatureRequiredMixin,
+    OrganizationFilterMixin,
+    OrganizationAutoSetMixin,
+    viewsets.ModelViewSet
+):
     """ViewSet for Grade model."""
     queryset = Grade.objects.select_related('assessment', 'student', 'graded_by').all()
     serializer_class = GradeSerializer
     permission_classes = [permissions.IsAuthenticated]
+    required_feature = 'assessment'  # Require assessment module
     filterset_fields = ['assessment', 'student']
     ordering_fields = ['graded_at']
     ordering = ['-graded_at']
     
     def get_queryset(self):
-        """Filter queryset based on user role."""
-        queryset = super().get_queryset()
+        """Filter queryset based on user role and organization."""
+        queryset = super().get_queryset()  # OrganizationFilterMixin handles organization filtering
         user = self.request.user
         
         # Students only see their own grades

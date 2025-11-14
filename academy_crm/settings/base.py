@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     'axes',
     
     # Local apps
+    'subscriptions',  # Multi-tenant and subscription management (must be before other apps)
     'accounts',
     'catalog',
     'admissions',
@@ -57,6 +58,7 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',  # Serve static files in production
     'academy_crm.middleware.RenderHostMiddleware',  # Allow Render subdomains
+    'subscriptions.middleware.TenantMiddleware',  # Multi-tenant organization identification (early in chain)
     'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'academy_crm.middleware.RenderCommonMiddleware',  # Custom CommonMiddleware that allows Render hosts

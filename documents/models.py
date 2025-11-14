@@ -17,6 +17,14 @@ class DocumentKind(models.TextChoices):
 class Document(models.Model):
     """Document model for file uploads."""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    organization = models.ForeignKey(
+        'subscriptions.Organization',
+        on_delete=models.CASCADE,
+        related_name='documents',
+        null=True,
+        blank=True,
+        help_text=_('Organization this document belongs to')
+    )
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='documents')
     kind = models.CharField(
         max_length=20,
@@ -43,6 +51,7 @@ class Document(models.Model):
         verbose_name_plural = _('documents')
         ordering = ['-created_at']
         indexes = [
+            models.Index(fields=['organization']),
             models.Index(fields=['owner']),
             models.Index(fields=['kind']),
         ]

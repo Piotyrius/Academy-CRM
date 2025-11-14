@@ -19,6 +19,14 @@ class AssessmentKind(models.TextChoices):
 class Assessment(models.Model):
     """Assessment model."""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    organization = models.ForeignKey(
+        'subscriptions.Organization',
+        on_delete=models.CASCADE,
+        related_name='assessments',
+        null=True,
+        blank=True,
+        help_text=_('Organization this assessment belongs to')
+    )
     cohort = models.ForeignKey(Cohort, on_delete=models.CASCADE, related_name='assessments')
     title = models.CharField(max_length=200)
     kind = models.CharField(
@@ -44,6 +52,7 @@ class Assessment(models.Model):
         verbose_name_plural = _('assessments')
         ordering = ['-due_at']
         indexes = [
+            models.Index(fields=['organization']),
             models.Index(fields=['cohort']),
             models.Index(fields=['due_at']),
             models.Index(fields=['published']),
@@ -56,6 +65,14 @@ class Assessment(models.Model):
 class Submission(models.Model):
     """Submission model."""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    organization = models.ForeignKey(
+        'subscriptions.Organization',
+        on_delete=models.CASCADE,
+        related_name='submissions',
+        null=True,
+        blank=True,
+        help_text=_('Organization this submission belongs to')
+    )
     assessment = models.ForeignKey(Assessment, on_delete=models.CASCADE, related_name='submissions')
     student = models.ForeignKey(
         User,
@@ -75,6 +92,7 @@ class Submission(models.Model):
         verbose_name_plural = _('submissions')
         unique_together = [['assessment', 'student']]
         indexes = [
+            models.Index(fields=['organization']),
             models.Index(fields=['assessment']),
             models.Index(fields=['student']),
             models.Index(fields=['submitted_at']),
@@ -87,6 +105,14 @@ class Submission(models.Model):
 class Grade(models.Model):
     """Grade model."""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    organization = models.ForeignKey(
+        'subscriptions.Organization',
+        on_delete=models.CASCADE,
+        related_name='grades',
+        null=True,
+        blank=True,
+        help_text=_('Organization this grade belongs to')
+    )
     assessment = models.ForeignKey(Assessment, on_delete=models.CASCADE, related_name='grades')
     student = models.ForeignKey(
         User,
@@ -124,6 +150,7 @@ class Grade(models.Model):
         verbose_name_plural = _('grades')
         unique_together = [['assessment', 'student']]
         indexes = [
+            models.Index(fields=['organization']),
             models.Index(fields=['assessment']),
             models.Index(fields=['student']),
             models.Index(fields=['graded_at']),

@@ -6,6 +6,9 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.db import transaction
+from subscriptions.mixins import (
+    OrganizationFilterMixin, FeatureRequiredMixin, OrganizationAutoSetMixin
+)
 from .models import Program, Course, Cohort, Session
 from .serializers import (
     ProgramSerializer,
@@ -17,41 +20,59 @@ from .services.session_generator import SessionGenerator
 from .permissions import IsAdminOrLecturerOwner
 
 
-class ProgramViewSet(viewsets.ModelViewSet):
+class ProgramViewSet(
+    FeatureRequiredMixin,
+    OrganizationFilterMixin,
+    OrganizationAutoSetMixin,
+    viewsets.ModelViewSet
+):
     """ViewSet for Program model."""
     queryset = Program.objects.all()
     serializer_class = ProgramSerializer
     permission_classes = [IsAuthenticated]
+    required_feature = 'catalog'  # Require catalog module
     filterset_fields = ['active']
     search_fields = ['name', 'code', 'description']
     ordering_fields = ['name', 'created_at']
     ordering = ['name']
 
 
-class CourseViewSet(viewsets.ModelViewSet):
+class CourseViewSet(
+    FeatureRequiredMixin,
+    OrganizationFilterMixin,
+    OrganizationAutoSetMixin,
+    viewsets.ModelViewSet
+):
     """ViewSet for Course model."""
     queryset = Course.objects.select_related('program').all()
     serializer_class = CourseSerializer
     permission_classes = [IsAuthenticated]
+    required_feature = 'catalog'  # Require catalog module
     filterset_fields = ['program']
     search_fields = ['title', 'code', 'description']
     ordering_fields = ['title', 'created_at']
     ordering = ['title']
 
 
-class CohortViewSet(viewsets.ModelViewSet):
+class CohortViewSet(
+    FeatureRequiredMixin,
+    OrganizationFilterMixin,
+    OrganizationAutoSetMixin,
+    viewsets.ModelViewSet
+):
     """ViewSet for Cohort model."""
     queryset = Cohort.objects.select_related('course', 'lecturer').all()
     serializer_class = CohortSerializer
     permission_classes = [IsAuthenticated]
+    required_feature = 'catalog'  # Require catalog module
     filterset_fields = ['course', 'lecturer', 'status']
     search_fields = ['name', 'course__title']
     ordering_fields = ['start_date', 'name', 'created_at']
     ordering = ['-start_date']
     
     def get_queryset(self):
-        """Filter queryset based on user role."""
-        queryset = super().get_queryset()
+        """Filter queryset based on user role and organization."""
+        queryset = super().get_queryset()  # OrganizationFilterMixin handles organization filtering
         user = self.request.user
         
         # Lecturers only see their own cohorts
@@ -92,19 +113,25 @@ class CohortViewSet(viewsets.ModelViewSet):
         })
 
 
-class SessionViewSet(viewsets.ModelViewSet):
+class SessionViewSet(
+    FeatureRequiredMixin,
+    OrganizationFilterMixin,
+    OrganizationAutoSetMixin,
+    viewsets.ModelViewSet
+):
     """ViewSet for Session model."""
     queryset = Session.objects.select_related('cohort').all()
     serializer_class = SessionSerializer
     permission_classes = [IsAuthenticated]
+    required_feature = 'catalog'  # Require catalog module
     filterset_fields = ['cohort', 'is_cancelled']
     search_fields = ['cohort__name']
     ordering_fields = ['start_at']
     ordering = ['start_at']
     
     def get_queryset(self):
-        """Filter queryset based on user role."""
-        queryset = super().get_queryset()
+        """Filter queryset based on user role and organization."""
+        queryset = super().get_queryset()  # OrganizationFilterMixin handles organization filtering
         user = self.request.user
         
         # Lecturers only see sessions for their cohorts
@@ -123,9 +150,10 @@ class SessionViewSet(viewsets.ModelViewSet):
         return queryset
 
 
-class LecturerViewSet(viewsets.ViewSet):
+class LecturerViewSet(FeatureRequiredMixin, viewsets.ViewSet):
     """ViewSet for lecturer-specific endpoints."""
     permission_classes = [IsAuthenticated]
+    required_feature = 'catalog'  # Require catalog module
     
     @action(detail=False, methods=['get'])
     def cohorts(self, request):
@@ -136,7 +164,15 @@ class LecturerViewSet(viewsets.ViewSet):
                 status=status.HTTP_403_FORBIDDEN
             )
         
+        # Get organization for filtering
+        organization = getattr(request, 'organization', None)
+        if not organization and hasattr(request.user, 'organization'):
+            organization = request.user.organization
+        
         cohorts = Cohort.objects.filter(lecturer=request.user)
+        if organization:
+            cohorts = cohorts.filter(organization=organization)
+        
         serializer = CohortSerializer(cohorts, many=True, context={'request': request})
         return Response(serializer.data)
     
@@ -149,7 +185,14 @@ class LecturerViewSet(viewsets.ViewSet):
                 status=status.HTTP_403_FORBIDDEN
             )
         
+        # Get organization for filtering
+        organization = getattr(request, 'organization', None)
+        if not organization and hasattr(request.user, 'organization'):
+            organization = request.user.organization
+        
         sessions = Session.objects.filter(cohort__lecturer=request.user)
+        if organization:
+            sessions = sessions.filter(organization=organization)
         
         # Filter by date range
         date_from = request.query_params.get('date_from')

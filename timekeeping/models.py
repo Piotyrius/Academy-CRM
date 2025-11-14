@@ -14,6 +14,14 @@ class Rate(models.Model):
     Amounts are stored in minor units (e.g., cents) for precision.
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    organization = models.ForeignKey(
+        'subscriptions.Organization',
+        on_delete=models.CASCADE,
+        related_name='rates',
+        null=True,
+        blank=True,
+        help_text=_('Organization this rate belongs to')
+    )
     lecturer = models.ForeignKey('accounts.User', on_delete=models.CASCADE, related_name='rates')
     per_hour_minor = models.BigIntegerField(validators=[MinValueValidator(0)])
     currency = models.CharField(max_length=3, default='USD')
@@ -22,7 +30,10 @@ class Rate(models.Model):
 
     class Meta:
         db_table = 'tk_rates'
-        indexes = [models.Index(fields=['lecturer', 'active'])]
+        indexes = [
+            models.Index(fields=['organization']),
+            models.Index(fields=['lecturer', 'active'])
+        ]
         constraints = [
             models.UniqueConstraint(fields=['lecturer'], condition=models.Q(active=True), name='tk_one_active_rate_per_lecturer'),
         ]
@@ -42,6 +53,14 @@ class WorkLog(models.Model):
     Phase 1: primarily generated from sessions.
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    organization = models.ForeignKey(
+        'subscriptions.Organization',
+        on_delete=models.CASCADE,
+        related_name='worklogs',
+        null=True,
+        blank=True,
+        help_text=_('Organization this worklog belongs to')
+    )
     lecturer = models.ForeignKey('accounts.User', on_delete=models.CASCADE, related_name='worklogs')
     session = models.ForeignKey('catalog.Session', on_delete=models.SET_NULL, null=True, blank=True, related_name='worklogs')
     start_at = models.DateTimeField()
@@ -56,6 +75,7 @@ class WorkLog(models.Model):
         db_table = 'tk_worklogs'
         ordering = ['-start_at']
         indexes = [
+            models.Index(fields=['organization']),
             models.Index(fields=['lecturer', 'start_at']),
             models.Index(fields=['session']),
         ]
@@ -80,6 +100,14 @@ class Timesheet(models.Model):
     Minimal fields for future phases; total minutes are recomputed on demand.
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    organization = models.ForeignKey(
+        'subscriptions.Organization',
+        on_delete=models.CASCADE,
+        related_name='timesheets',
+        null=True,
+        blank=True,
+        help_text=_('Organization this timesheet belongs to')
+    )
     lecturer = models.ForeignKey('accounts.User', on_delete=models.CASCADE, related_name='timesheets')
     period_start = models.DateField()
     period_end = models.DateField()
@@ -93,6 +121,9 @@ class Timesheet(models.Model):
     class Meta:
         db_table = 'tk_timesheets'
         unique_together = [['lecturer', 'period_start', 'period_end']]
-        indexes = [models.Index(fields=['lecturer', 'period_start', 'period_end'])]
+        indexes = [
+            models.Index(fields=['organization']),
+            models.Index(fields=['lecturer', 'period_start', 'period_end'])
+        ]
 
 
