@@ -103,7 +103,9 @@ else:
     CORS_ALLOW_CREDENTIALS = True
 
 # Static files serving in production
-# Note: For better performance, consider adding WhiteNoise middleware
-# For now, Django will serve static files from STATIC_ROOT
-# In production with a reverse proxy, static files should be served by the web server
-STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.ManifestStaticFilesStorage'
+# Use WhiteNoise to serve static files efficiently
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
+# WhiteNoise configuration
+WHITENOISE_USE_FINDERS = True
+WHITENOISE_AUTOREFRESH = True
