@@ -16,17 +16,29 @@ urlpatterns = [
     path('health/', include('health_check.urls')),
     
     # API Documentation (publicly accessible for frontend developers)
-    path('api/docs/', SpectacularSwaggerView.as_view(
-        url_name='schema',
+    # Support both with and without trailing slash to avoid 301 redirects
+    path('api/schema', CustomSpectacularAPIView.as_view(), name='schema'),
+    path('api/schema/', CustomSpectacularAPIView.as_view(), name='schema-slash'),
+    path('api/docs', SpectacularSwaggerView.as_view(
+        url_name='schema-slash',  # Use schema with trailing slash
         authentication_classes=[],
         permission_classes=[]
     ), name='swagger-ui'),
-    path('api/docs/redoc/', SpectacularRedocView.as_view(
-        url_name='schema',
+    path('api/docs/', SpectacularSwaggerView.as_view(
+        url_name='schema-slash',
+        authentication_classes=[],
+        permission_classes=[]
+    ), name='swagger-ui-slash'),
+    path('api/docs/redoc', SpectacularRedocView.as_view(
+        url_name='schema-slash',
         authentication_classes=[],
         permission_classes=[]
     ), name='redoc'),
-    path('api/schema/', CustomSpectacularAPIView.as_view(), name='schema'),
+    path('api/docs/redoc/', SpectacularRedocView.as_view(
+        url_name='schema-slash',
+        authentication_classes=[],
+        permission_classes=[]
+    ), name='redoc-slash'),
     
     # API v1
     path('api/v1/', include('accounts.urls')),
