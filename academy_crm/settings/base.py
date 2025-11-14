@@ -96,6 +96,17 @@ def get_db_host():
     """Extract hostname from DB_HOST, handling both URL and hostname formats."""
     db_host = os.getenv('DB_HOST', 'localhost')
     
+    # Safety check: if DB_HOST looks like a password (starts with alphanumeric and has @), it's wrong
+    if db_host and '@' in db_host and not db_host.startswith(('postgresql://', 'postgres://', 'http://', 'https://')):
+        # This looks like password@host format - extract hostname
+        if '@' in db_host:
+            host_part = db_host.split('@')[-1]
+            # Remove database name if present (host/db)
+            hostname = host_part.split('/')[0]
+            # Remove port if present
+            hostname = hostname.split(':')[0]
+            return hostname
+    
     # If it's a full PostgreSQL URL, extract just the hostname
     if db_host.startswith('postgresql://') or db_host.startswith('postgres://'):
         # Parse the URL: postgresql://user:pass@host:port/db
@@ -118,15 +129,23 @@ def get_db_host():
     return db_host
 
 # Get database host (handles both URL and hostname formats)
+db_host_raw = os.getenv('DB_HOST', 'localhost')
 db_host = get_db_host()
 
 # Log database configuration (without password) for debugging
 import logging
 logger = logging.getLogger(__name__)
-logger.info(f"Database HOST: {db_host}")
+logger.warning(f"DB_HOST (raw): {db_host_raw[:50]}..." if len(db_host_raw) > 50 else f"DB_HOST (raw): {db_host_raw}")
+logger.info(f"Database HOST (parsed): {db_host}")
 logger.info(f"Database NAME: {os.getenv('DB_NAME', 'academy_crm')}")
 logger.info(f"Database USER: {os.getenv('DB_USER', 'postgres')}")
 logger.info(f"Database PORT: {os.getenv('DB_PORT', '5432')}")
+
+# Warn if DB_HOST looks wrong
+if '@' in db_host_raw and not db_host_raw.startswith(('postgresql://', 'postgres://')):
+    logger.error(f"⚠️ DB_HOST appears to have password mixed in! Raw value: {db_host_raw[:50]}...")
+    logger.error(f"✅ Parsed hostname: {db_host}")
+    logger.error("⚠️ Please fix DB_HOST in Render environment variables to be just the hostname!")
 
 DATABASES = {
     'default': {
