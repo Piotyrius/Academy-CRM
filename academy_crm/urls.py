@@ -20,22 +20,22 @@ urlpatterns = [
     path('api/schema', CustomSpectacularAPIView.as_view(), name='schema'),
     path('api/schema/', CustomSpectacularAPIView.as_view(), name='schema-slash'),
     path('api/docs', SpectacularSwaggerView.as_view(
-        url_name='schema-slash',  # Use schema with trailing slash
+        url='/api/schema/',  # Explicit schema URL
         authentication_classes=[],
         permission_classes=[]
     ), name='swagger-ui'),
     path('api/docs/', SpectacularSwaggerView.as_view(
-        url_name='schema-slash',
+        url='/api/schema/',  # Explicit schema URL
         authentication_classes=[],
         permission_classes=[]
     ), name='swagger-ui-slash'),
     path('api/docs/redoc', SpectacularRedocView.as_view(
-        url_name='schema-slash',
+        url='/api/schema/',  # Explicit schema URL
         authentication_classes=[],
         permission_classes=[]
     ), name='redoc'),
     path('api/docs/redoc/', SpectacularRedocView.as_view(
-        url_name='schema-slash',
+        url='/api/schema/',  # Explicit schema URL
         authentication_classes=[],
         permission_classes=[]
     ), name='redoc-slash'),
