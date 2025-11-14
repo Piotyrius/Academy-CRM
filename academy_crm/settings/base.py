@@ -90,13 +90,51 @@ WSGI_APPLICATION = 'academy_crm.wsgi.application'
 
 # Database
 # PostgreSQL is required - UUID primary keys require PostgreSQL
+
+# Helper function to extract hostname from DB_HOST if it's a full URL
+def get_db_host():
+    """Extract hostname from DB_HOST, handling both URL and hostname formats."""
+    db_host = os.getenv('DB_HOST', 'localhost')
+    
+    # If it's a full PostgreSQL URL, extract just the hostname
+    if db_host.startswith('postgresql://') or db_host.startswith('postgres://'):
+        # Parse the URL: postgresql://user:pass@host:port/db
+        try:
+            from urllib.parse import urlparse
+            parsed = urlparse(db_host)
+            # Extract hostname (remove port if present)
+            hostname = parsed.hostname or parsed.netloc.split('@')[-1].split(':')[0]
+            return hostname
+        except Exception:
+            # If parsing fails, try to extract manually
+            if '@' in db_host:
+                # Extract hostname from postgresql://user:pass@host/db
+                host_part = db_host.split('@')[-1].split('/')[0]
+                # Remove port if present
+                hostname = host_part.split(':')[0]
+                return hostname
+    
+    # If it's already just a hostname, return as-is
+    return db_host
+
+# Get database host (handles both URL and hostname formats)
+db_host = get_db_host()
+
+# Log database configuration (without password) for debugging
+import logging
+logger = logging.getLogger(__name__)
+logger.info(f"Database HOST: {db_host}")
+logger.info(f"Database NAME: {os.getenv('DB_NAME', 'academy_crm')}")
+logger.info(f"Database USER: {os.getenv('DB_USER', 'postgres')}")
+logger.info(f"Database PORT: {os.getenv('DB_PORT', '5432')}")
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': os.getenv('DB_NAME', 'academy_crm'),
         'USER': os.getenv('DB_USER', 'postgres'),
         'PASSWORD': os.getenv('DB_PASSWORD', 'postgres'),
-        'HOST': os.getenv('DB_HOST', 'localhost'),
+        'HOST': db_host,
         'PORT': os.getenv('DB_PORT', '5432'),
         'OPTIONS': {
             'connect_timeout': 10,
@@ -230,7 +268,13 @@ CELERY_TIMEZONE = TIME_ZONE
 AXES_ENABLED = True
 AXES_FAILURE_LIMIT = 5
 AXES_COOLOFF_TIME = 1  # hours
-AXES_LOCKOUT_CALLABLE = 'axes.lockout.database_lockout'
+# Use database lockout (requires database connection)
+try:
+    from axes.lockout import database_lockout
+    AXES_LOCKOUT_CALLABLE = database_lockout
+except ImportError:
+    # Fallback if axes lockout not available
+    AXES_LOCKOUT_CALLABLE = None
 
 # Sentry (will be configured in prod)
 SENTRY_DSN = os.getenv('SENTRY_DSN', '')
