@@ -6,10 +6,10 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from drf_spectacular.views import (
-    SpectacularAPIView,
     SpectacularRedocView,
     SpectacularSwaggerView,
 )
+from academy_crm.views import CustomSpectacularAPIView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -26,10 +26,7 @@ urlpatterns = [
         authentication_classes=[],
         permission_classes=[]
     ), name='redoc'),
-    path('api/schema/', SpectacularAPIView.as_view(
-        authentication_classes=[],
-        permission_classes=[]
-    ), name='schema'),
+    path('api/schema/', CustomSpectacularAPIView.as_view(), name='schema'),
     
     # API v1
     path('api/v1/', include('accounts.urls')),

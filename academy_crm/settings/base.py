@@ -240,12 +240,27 @@ SPECTACULAR_SETTINGS = {
     'TITLE': 'Academy CRM API',
     'DESCRIPTION': 'REST API for Academy CRM Backend',
     'VERSION': '1.0.0',
-    'SERVE_INCLUDE_SCHEMA': False,
+    'SERVE_INCLUDE_SCHEMA': True,  # Include schema in response
     'SCHEMA_PATH_PREFIX': '/api/v1/',
     'SERVE_PERMISSIONS': ['rest_framework.permissions.AllowAny'],  # Allow schema access without auth
     'SERVE_AUTHENTICATION': None,  # No auth required for schema
     'COMPONENT_SPLIT_REQUEST': True,
     'COMPONENT_NO_READ_ONLY_REQUIRED': True,
+    # Make schema generation work without database
+    'DISABLE_ERRORS_AND_WARNINGS': False,
+    'PREPROCESSING_HOOKS': [],
+    'POSTPROCESSING_HOOKS': [],
+    # Cache schema generation
+    'SCHEMA_PATH_PREFIX_TRIM': True,
+    'SCHEMA_COERCE_PATH_PK': True,
+    'SCHEMA_COERCE_METHOD_NAMES': {
+        'retrieve': 'read',
+        'list': 'list',
+        'create': 'create',
+        'update': 'update',
+        'partial_update': 'partial_update',
+        'destroy': 'delete',
+    },
     # Make Swagger UI accessible without authentication
     'SWAGGER_UI_SETTINGS': {
         'deepLinking': True,
@@ -257,6 +272,7 @@ SPECTACULAR_SETTINGS = {
         'showExtensions': True,
         'showCommonExtensions': True,
         'tryItOutEnabled': True,
+        'persistAuthorization': True,
     },
     # Security settings for Swagger
     'APPEND_COMPONENTS': {
@@ -269,6 +285,20 @@ SPECTACULAR_SETTINGS = {
         }
     },
     'SECURITY': [{'Bearer': []}],  # Default security for all endpoints
+    # Tags for better organization
+    'TAGS': [
+        {'name': 'Authentication', 'description': 'User authentication endpoints'},
+        {'name': 'Users', 'description': 'User management'},
+        {'name': 'Catalog', 'description': 'Programs and courses'},
+        {'name': 'Admissions', 'description': 'Student admissions'},
+        {'name': 'Attendance', 'description': 'Attendance tracking'},
+        {'name': 'Assessment', 'description': 'Assessments and grades'},
+        {'name': 'Certificates', 'description': 'Certificate management'},
+        {'name': 'Documents', 'description': 'Document management'},
+        {'name': 'Timekeeping', 'description': 'Work logs and timesheets'},
+        {'name': 'Gallery', 'description': 'Gallery management'},
+        {'name': 'Reporting', 'description': 'Reports and exports'},
+    ],
 }
 
 # Logging

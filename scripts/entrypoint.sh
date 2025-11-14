@@ -33,9 +33,14 @@ else
     echo "Skipping migrations (AUTO_MIGRATE=false, set AUTO_MIGRATE=true to enable)"
 fi
 
-# Collect static files (if not already done in build)
-echo "Collecting static files..."
-python manage.py collectstatic --noinput || true
+# Collect static files (moved to runtime for faster builds)
+# Only collect if staticfiles directory is empty or AUTO_COLLECT_STATIC is true
+if [ ! -d "/app/staticfiles" ] || [ -z "$(ls -A /app/staticfiles)" ] || [ "${AUTO_COLLECT_STATIC:-true}" = "true" ]; then
+    echo "Collecting static files..."
+    python manage.py collectstatic --noinput || true
+else
+    echo "Static files already collected, skipping..."
+fi
 
 # Execute the command passed to the container
 # If no command provided, use default gunicorn command

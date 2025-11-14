@@ -3,8 +3,8 @@ FROM python:3.11-slim as builder
 
 WORKDIR /app
 
-# Install system dependencies for building
-RUN apt-get update && apt-get install -y \
+# Install system dependencies for building (optimized - single layer)
+RUN apt-get update && apt-get install -y --no-install-recommends \
     postgresql-client \
     libpq-dev \
     gcc \
@@ -12,17 +12,23 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy and install Python dependencies globally
+# Upgrade pip for faster installs
+RUN pip install --upgrade pip setuptools wheel
+
+# Copy only requirements first (better layer caching)
 COPY requirements/ /app/requirements/
-RUN pip install --no-cache-dir -r requirements/prod.txt
+
+# Install Python dependencies with optimizations
+# Using --no-cache-dir saves space, but pip cache can speed up rebuilds
+RUN pip install --no-cache-dir --upgrade-strategy only-if-needed -r requirements/prod.txt
 
 # Production stage
 FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install runtime dependencies only
-RUN apt-get update && apt-get install -y \
+# Install runtime dependencies only (optimized - single layer, no recommends)
+RUN apt-get update && apt-get install -y --no-install-recommends \
     postgresql-client \
     libpq-dev \
     curl \
@@ -32,23 +38,24 @@ RUN apt-get update && apt-get install -y \
 COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
 
-# Create non-root user for security
+# Set Python environment variables early (better for caching)
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+# Create non-root user and directories in one layer
 RUN useradd -m -u 1000 appuser && \
     mkdir -p /app/staticfiles /app/media && \
     chown -R appuser:appuser /app
 
-# Copy project files
+# Copy project files (this layer changes most often, so it's last)
 COPY --chown=appuser:appuser . /app/
 
-# Make scripts executable (as root before switching users)
+# Make scripts executable and collect static files (as root, before switching users)
+# Note: collectstatic moved to runtime in entrypoint for faster builds
+# But we can still do it here if you prefer (slower build, faster startup)
 RUN chmod +x /app/scripts/*.sh || true
-
-# Set Python environment variables
-ENV PYTHONUNBUFFERED=1
-ENV PYTHONDONTWRITEBYTECODE=1
-
-# Collect static files (before switching to appuser, Django is now globally available)
-RUN python manage.py collectstatic --noinput || true
 
 # Switch to non-root user
 USER appuser
