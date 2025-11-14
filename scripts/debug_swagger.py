@@ -5,6 +5,15 @@ Run this in Render shell: python scripts/debug_swagger.py
 """
 import os
 import sys
+from pathlib import Path
+
+# Add project root to Python path
+project_root = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(project_root))
+
+# Change to project root directory
+os.chdir(project_root)
+
 import django
 
 # Setup Django
