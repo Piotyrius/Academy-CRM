@@ -24,22 +24,26 @@ else
 fi
 
 # Run migrations (disabled by default, enable with AUTO_MIGRATE=true)
+# NOTE: If using Render's Pre-Deploy Command, migrations will run there instead
+# This is a fallback for non-Render deployments or if Pre-Deploy is not configured
 if [ "${AUTO_MIGRATE:-false}" = "true" ]; then
     echo "Running database migrations (AUTO_MIGRATE=true)..."
     python manage.py migrate --noinput || {
         echo "WARNING: Migrations failed, but continuing..."
     }
 else
-    echo "Skipping migrations (AUTO_MIGRATE=false, set AUTO_MIGRATE=true to enable)"
+    echo "Skipping migrations (AUTO_MIGRATE=false or using Pre-Deploy Command)"
+    echo "  To enable: set AUTO_MIGRATE=true or use Render Pre-Deploy Command"
 fi
 
 # Collect static files (moved to runtime for faster builds)
-# Only collect if staticfiles directory is empty or AUTO_COLLECT_STATIC is true
+# NOTE: If using Render's Pre-Deploy Command, static files will be collected there
+# This is a fallback for non-Render deployments or if Pre-Deploy is not configured
 if [ ! -d "/app/staticfiles" ] || [ -z "$(ls -A /app/staticfiles)" ] || [ "${AUTO_COLLECT_STATIC:-true}" = "true" ]; then
     echo "Collecting static files..."
     python manage.py collectstatic --noinput || true
 else
-    echo "Static files already collected, skipping..."
+    echo "Static files already collected (likely from Pre-Deploy Command), skipping..."
 fi
 
 # Execute the command passed to the container
