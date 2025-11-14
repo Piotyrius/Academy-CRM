@@ -67,7 +67,11 @@ if not ALLOWED_HOSTS:
         ALLOWED_HOSTS = ['localhost', '127.0.0.1']
 
 # Security settings
-SECURE_SSL_REDIRECT = True
+# Render uses a proxy that terminates SSL, so we need to trust the X-Forwarded-Proto header
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+# Only redirect to HTTPS if we're sure we're behind a proxy (Render sets X-Forwarded-Proto)
+# Disable automatic redirect to avoid loops - Render handles SSL termination
+SECURE_SSL_REDIRECT = False  # Render handles SSL, so we don't need to redirect
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 SECURE_HSTS_SECONDS = 31536000
