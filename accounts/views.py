@@ -45,6 +45,9 @@ class UserViewSet(viewsets.ModelViewSet):
         return context
     
     def get_permissions(self):
+        # 'me' and 'me_update' actions should be accessible to any authenticated user
+        if self.action in ['me', 'me_update']:
+            return [permissions.IsAuthenticated()]
         if self.action in ['list', 'retrieve', 'update', 'partial_update', 'destroy']:
             return [permissions.IsAuthenticated(), IsAdminOrSelf()]
         return [permissions.IsAdminUser()]
