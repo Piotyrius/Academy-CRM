@@ -3,6 +3,7 @@ Mixins for ViewSets to handle organization filtering and feature checks.
 """
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.exceptions import PermissionDenied
 from .utils import has_feature
 
 
@@ -41,8 +42,10 @@ class FeatureRequiredMixin:
     """
     required_feature = None  # Override in subclass
     
-    def dispatch(self, request, *args, **kwargs):
+    def initial(self, request, *args, **kwargs):
         """Check feature access before processing request."""
+        super().initial(request, *args, **kwargs)
+        
         if self.required_feature:
             # Get organization from request
             organization = getattr(request, 'organization', None)
@@ -54,17 +57,14 @@ class FeatureRequiredMixin:
             
             # Check if organization has access to this feature
             if not has_feature(organization, self.required_feature):
-                return Response(
-                    {
+                raise PermissionDenied(
+                    detail={
                         'error': 'Feature not available',
                         'message': f'The {self.required_feature} module is not included in your subscription plan.',
                         'module': self.required_feature,
                         'upgrade_required': True,
-                    },
-                    status=status.HTTP_403_FORBIDDEN
+                    }
                 )
-        
-        return super().dispatch(request, *args, **kwargs)
 
 
 class OrganizationAutoSetMixin:

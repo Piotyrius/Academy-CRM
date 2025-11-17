@@ -46,6 +46,7 @@ class RateViewSet(viewsets.ModelViewSet):
     serializer_class = RateSerializer
     permission_classes = [IsAdmin]
     filterset_fields = ['lecturer', 'active', 'currency']
+    ordering = ['-created_at']  # Add ordering to prevent pagination warning
     
     def perform_create(self, serializer):
         """Admin can create rates for any lecturer."""
