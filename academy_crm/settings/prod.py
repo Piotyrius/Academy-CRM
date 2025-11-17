@@ -101,6 +101,22 @@ if SENTRY_DSN:
 # Filter out empty strings from comma-separated list
 CORS_ALLOWED_ORIGINS = [origin.strip() for origin in os.getenv('CORS_ALLOWED_ORIGINS', '').split(',') if origin.strip()]
 
+# Always allow localhost origins for local development (frontend developers)
+# These are safe to include even in production as they only work on localhost
+LOCALHOST_ORIGINS = [
+    "http://localhost:3000",
+    "http://localhost:8000",
+    "http://localhost:8080",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:8000",
+    "http://127.0.0.1:8080",
+]
+
+# Add localhost origins if not already present
+for origin in LOCALHOST_ORIGINS:
+    if origin not in CORS_ALLOWED_ORIGINS:
+        CORS_ALLOWED_ORIGINS.append(origin)
+
 # If no CORS origins specified (backend-only deployment), allow all for API testing
 # You can restrict this later when you add a frontend
 if not CORS_ALLOWED_ORIGINS:
