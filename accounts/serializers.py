@@ -31,7 +31,17 @@ class UserCreateSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         """Create user with hashed password."""
         password = validated_data.pop('password')
-        user = User.objects.create_user(password=password, **validated_data)
+        request = self.context.get('request')
+        
+        # If created by admin, user is active immediately
+        # Otherwise, user is inactive (pending approval)
+        is_active = request and request.user and request.user.is_admin
+        
+        user = User.objects.create_user(
+            password=password,
+            is_active=is_active,
+            **validated_data
+        )
         return user
 
 
