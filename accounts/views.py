@@ -67,6 +67,7 @@ class UserViewSet(viewsets.ModelViewSet):
 class CustomTokenObtainPairView(TokenObtainPairView):
     """Custom token obtain view."""
     serializer_class = CustomTokenObtainPairSerializer
+    permission_classes = [permissions.AllowAny]  # Explicitly allow unauthenticated access
 
 
 @api_view(['POST'])

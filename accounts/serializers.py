@@ -63,7 +63,14 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         if 'email' in attrs and 'username' not in attrs:
             attrs['username'] = attrs['email']
         data = super().validate(attrs)
-        data['user'] = UserSerializer(self.user).data
+        
+        # Ensure user is available and add user data to response
+        if not hasattr(self, 'user') or self.user is None:
+            raise serializers.ValidationError('User authentication failed.')
+        
+        # Serialize user data and add to response
+        user_serializer = UserSerializer(self.user)
+        data['user'] = user_serializer.data
         return data
 
 
