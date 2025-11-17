@@ -2,11 +2,19 @@
 Views for accounts app.
 """
 from rest_framework import viewsets, permissions, status
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework_simplejwt.views import TokenObtainPairView
 from django.contrib.auth import get_user_model
-from .serializers import UserSerializer, UserCreateSerializer, CustomTokenObtainPairSerializer
+from django.contrib.auth.tokens import default_token_generator
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
+from django.utils.encoding import force_bytes, force_str
+from django.core.mail import send_mail
+from django.conf import settings
+from .serializers import (
+    UserSerializer, UserCreateSerializer, CustomTokenObtainPairSerializer,
+    PasswordResetRequestSerializer, PasswordResetConfirmSerializer
+)
 from .permissions import IsAdminOrSelf
 
 User = get_user_model()
@@ -59,6 +67,101 @@ class UserViewSet(viewsets.ModelViewSet):
 class CustomTokenObtainPairView(TokenObtainPairView):
     """Custom token obtain view."""
     serializer_class = CustomTokenObtainPairSerializer
+
+
+@api_view(['POST'])
+@permission_classes([permissions.AllowAny])
+def password_reset_request(request):
+    """Request password reset - sends email with reset link."""
+    serializer = PasswordResetRequestSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    
+    email = serializer.validated_data['email']
+    
+    try:
+        user = User.objects.get(email=email)
+    except User.DoesNotExist:
+        # Don't reveal if user exists - return success anyway
+        return Response({
+            'message': 'If an account exists with this email, a password reset link has been sent.'
+        }, status=status.HTTP_200_OK)
+    
+    # Generate token
+    token = default_token_generator.make_token(user)
+    uid = urlsafe_base64_encode(force_bytes(user.pk))
+    
+    # Create reset link - combine uid and token
+    combined_token = f"{uid}.{token}"
+    
+    # Get frontend URL from settings or use request origin
+    frontend_url = getattr(settings, 'FRONTEND_URL', None)
+    if not frontend_url:
+        # Try to get from request origin (for development)
+        origin = request.META.get('HTTP_ORIGIN', '')
+        if origin:
+            frontend_url = origin
+        else:
+            # Fallback to request host
+            frontend_url = request.build_absolute_uri('/').rstrip('/')
+    
+    reset_link = f"{frontend_url}/reset-password?token={combined_token}"
+    
+    # Send email
+    try:
+        send_mail(
+            subject='Password Reset Request',
+            message=f'Click the following link to reset your password:\n\n{reset_link}\n\nThis link will expire in 24 hours.',
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[user.email],
+            fail_silently=False,
+        )
+    except Exception as e:
+        # Log error but don't reveal to user
+        return Response({
+            'message': 'If an account exists with this email, a password reset link has been sent.'
+        }, status=status.HTTP_200_OK)
+    
+    return Response({
+        'message': 'If an account exists with this email, a password reset link has been sent.'
+    }, status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+@permission_classes([permissions.AllowAny])
+def password_reset_confirm(request):
+    """Confirm password reset with token."""
+    serializer = PasswordResetConfirmSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    
+    token = serializer.validated_data['token']
+    new_password = serializer.validated_data['password']
+    
+    try:
+        # Decode user ID from token
+        uid = force_str(urlsafe_base64_decode(token.split('.')[0]))
+        user = User.objects.get(pk=uid)
+        
+        # Verify token
+        token_part = token.split('.')[1] if '.' in token else token
+        if not default_token_generator.check_token(user, token_part):
+            return Response(
+                {'error': 'Invalid or expired token.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Set new password
+        user.set_password(new_password)
+        user.save()
+        
+        return Response({
+            'message': 'Password has been reset successfully.'
+        }, status=status.HTTP_200_OK)
+        
+    except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+        return Response(
+            {'error': 'Invalid or expired token.'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
 
 
 # Student portal views

@@ -65,3 +65,27 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         data = super().validate(attrs)
         data['user'] = UserSerializer(self.user).data
         return data
+
+
+class PasswordResetRequestSerializer(serializers.Serializer):
+    """Serializer for password reset request."""
+    email = serializers.EmailField(required=True)
+    
+    def validate_email(self, value):
+        """Check if user exists."""
+        if not User.objects.filter(email=value).exists():
+            # Don't reveal if email exists for security
+            pass
+        return value
+
+
+class PasswordResetConfirmSerializer(serializers.Serializer):
+    """Serializer for password reset confirmation."""
+    token = serializers.CharField(required=True)
+    password = serializers.CharField(required=True, min_length=8, write_only=True)
+    
+    def validate_token(self, value):
+        """Validate reset token format."""
+        if '.' not in value:
+            raise serializers.ValidationError('Invalid token format.')
+        return value
