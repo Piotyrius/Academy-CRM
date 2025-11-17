@@ -211,9 +211,10 @@ AUTHENTICATION_BACKENDS = (
 
 # REST Framework
 REST_FRAMEWORK = {
+    # Only JWT for API - Session auth is only for Django admin
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
-        'rest_framework.authentication.SessionAuthentication',
+        # SessionAuthentication removed - only needed for Django admin, not API
     ),
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
@@ -345,17 +346,18 @@ SPECTACULAR_SETTINGS = {
         'tryItOutEnabled': True,
         'persistAuthorization': True,
     },
-    # Security settings for Swagger
+    # Security settings for Swagger - Only JWT Bearer token
     'APPEND_COMPONENTS': {
         'securitySchemes': {
-            'Bearer': {
+            'BearerAuth': {
                 'type': 'http',
                 'scheme': 'bearer',
                 'bearerFormat': 'JWT',
+                'description': 'JWT token obtained from /api/v1/auth/login/ endpoint'
             }
         }
     },
-    'SECURITY': [{'Bearer': []}],  # Default security for all endpoints
+    'SECURITY': [{'BearerAuth': []}],  # Default security for all endpoints - only JWT
     # Tags for better organization
     'TAGS': [
         {'name': 'Authentication', 'description': 'User authentication endpoints'},

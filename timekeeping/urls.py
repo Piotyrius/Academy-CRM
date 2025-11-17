@@ -10,7 +10,7 @@ router.register(r'timesheets', TimesheetViewSet, basename='timesheet')
 
 urlpatterns = [
     path('', include(router.urls)),
-    path('payroll/export', payroll_export, name='payroll-export'),
+    path('payroll/export/', payroll_export, name='payroll-export'),  # Added trailing slash for consistency
 ]
 
 
