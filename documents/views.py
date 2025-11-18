@@ -3,6 +3,7 @@ Views for documents app.
 """
 from django.db import models
 from rest_framework import viewsets, permissions
+from django.http import Http404
 from .models import Document
 from .serializers import DocumentSerializer
 from .permissions import IsOwnerOrAdmin
@@ -33,6 +34,14 @@ class DocumentViewSet(viewsets.ModelViewSet):
             )
         
         return queryset
+    
+    def get_object(self):
+        """Override to provide specific 404 error message."""
+        try:
+            return super().get_object()
+        except Http404:
+            model_name = self.queryset.model._meta.verbose_name
+            raise Http404(f"No {model_name} matches the given query.")
     
     def perform_create(self, serializer):
         """Set owner to current user."""

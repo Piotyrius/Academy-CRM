@@ -6,6 +6,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from django_filters.rest_framework import DjangoFilterBackend
+from django.http import Http404
 from .models import (
     Organization, SubscriptionPlan, Subscription, PlanFeature, Billing
 )
@@ -45,6 +46,14 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             return Organization.objects.filter(id=user.organization.id)
         
         return Organization.objects.none()
+    
+    def get_object(self):
+        """Override to provide specific 404 error message."""
+        try:
+            return super().get_object()
+        except Http404:
+            model_name = self.queryset.model._meta.verbose_name
+            raise Http404(f"No {model_name} matches the given query.")
     
     @action(detail=True, methods=['get'])
     def subscription_status(self, request, pk=None):
@@ -107,6 +116,14 @@ class SubscriptionViewSet(viewsets.ModelViewSet):
             return Subscription.objects.filter(organization=user.organization)
         
         return Subscription.objects.none()
+    
+    def get_object(self):
+        """Override to provide specific 404 error message."""
+        try:
+            return super().get_object()
+        except Http404:
+            model_name = self.queryset.model._meta.verbose_name
+            raise Http404(f"No {model_name} matches the given query.")
     
     @action(detail=False, methods=['get'])
     def my_subscription(self, request):

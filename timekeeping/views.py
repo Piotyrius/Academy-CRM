@@ -1,9 +1,9 @@
 from rest_framework import viewsets, permissions, decorators, response
 from django.db.models import Sum
 from django.utils.dateparse import parse_date
+from django.http import Http404, HttpResponse
 from .models import WorkLog, Rate, Timesheet
 from .serializers import WorkLogSerializer, RateSerializer, TimesheetSerializer
-from django.http import HttpResponse
 import csv
 
 
@@ -27,6 +27,14 @@ class WorkLogViewSet(viewsets.ModelViewSet):
             return qs
         return qs.filter(lecturer=user)
     
+    def get_object(self):
+        """Override to provide specific 404 error message."""
+        try:
+            return super().get_object()
+        except Http404:
+            model_name = self.queryset.model._meta.verbose_name
+            raise Http404(f"No {model_name} matches the given query.")
+    
     def perform_create(self, serializer):
         """Auto-assign lecturer from authenticated user for non-admin users."""
         user = self.request.user
@@ -48,6 +56,14 @@ class RateViewSet(viewsets.ModelViewSet):
     filterset_fields = ['lecturer', 'active', 'currency']
     ordering = ['-created_at']  # Add ordering to prevent pagination warning
     
+    def get_object(self):
+        """Override to provide specific 404 error message."""
+        try:
+            return super().get_object()
+        except Http404:
+            model_name = self.queryset.model._meta.verbose_name
+            raise Http404(f"No {model_name} matches the given query.")
+    
     def perform_create(self, serializer):
         """Admin can create rates for any lecturer."""
         # Admin must specify lecturer explicitly
@@ -67,6 +83,14 @@ class TimesheetViewSet(viewsets.ModelViewSet):
         if getattr(user, 'is_admin', False):
             return qs
         return qs.filter(lecturer=user)
+    
+    def get_object(self):
+        """Override to provide specific 404 error message."""
+        try:
+            return super().get_object()
+        except Http404:
+            model_name = self.queryset.model._meta.verbose_name
+            raise Http404(f"No {model_name} matches the given query.")
     
     def perform_create(self, serializer):
         """Auto-assign lecturer from authenticated user for non-admin users."""

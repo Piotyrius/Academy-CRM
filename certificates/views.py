@@ -5,6 +5,7 @@ from rest_framework import viewsets, status, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.utils import timezone
+from django.http import Http404
 from .models import Certificate, CertificateStatus
 from .serializers import CertificateSerializer, CertificateVerifySerializer
 from .services.certificate_service import CertificateService
@@ -34,6 +35,14 @@ class CertificateViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(cohort__lecturer=user)
         
         return queryset
+    
+    def get_object(self):
+        """Override to provide specific 404 error message."""
+        try:
+            return super().get_object()
+        except Http404:
+            model_name = self.queryset.model._meta.verbose_name
+            raise Http404(f"No {model_name} matches the given query.")
     
     @action(detail=False, methods=['post'])
     def issue(self, request):

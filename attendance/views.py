@@ -6,6 +6,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db import transaction
 from django.utils import timezone
+from django.http import Http404
 from subscriptions.mixins import (
     OrganizationFilterMixin, FeatureRequiredMixin, OrganizationAutoSetMixin
 )
@@ -44,6 +45,14 @@ class AttendanceRecordViewSet(
             queryset = queryset.filter(session__cohort__lecturer=user)
         
         return queryset
+    
+    def get_object(self):
+        """Override to provide specific 404 error message."""
+        try:
+            return super().get_object()
+        except Http404:
+            model_name = self.queryset.model._meta.verbose_name
+            raise Http404(f"No {model_name} matches the given query.")
     
     def perform_create(self, serializer):
         """Set marked_by to current user."""

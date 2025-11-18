@@ -1,5 +1,6 @@
 from django.utils import timezone
 from django.db.models import Q
+from django.http import Http404
 from rest_framework import viewsets, permissions, decorators, response, status
 from .models import Work, WorkStatus
 from .serializers import WorkSerializer
@@ -25,6 +26,14 @@ class WorkViewSet(viewsets.ModelViewSet):
             return qs
         # Owners see own items; others see published + permitted
         return qs.filter(Q(owner=user) | Q(status=WorkStatus.PUBLISHED, is_public=True))
+    
+    def get_object(self):
+        """Override to provide specific 404 error message."""
+        try:
+            return super().get_object()
+        except Http404:
+            model_name = self.queryset.model._meta.verbose_name
+            raise Http404(f"No {model_name} matches the given query.")
 
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)
