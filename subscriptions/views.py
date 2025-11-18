@@ -25,6 +25,13 @@ class OrganizationViewSet(viewsets.ModelViewSet):
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['status', 'domain']
     
+    def get_permissions(self):
+        """Restrict list and write operations to admins only."""
+        if self.action in ['list', 'create', 'update', 'partial_update', 'destroy']:
+            return [IsAdminUser()]
+        # retrieve and subscription_status are accessible to authenticated users (filtered by organization)
+        return [IsAuthenticated()]
+    
     def get_queryset(self):
         """Filter organizations based on user permissions."""
         user = self.request.user
@@ -58,6 +65,12 @@ class SubscriptionPlanViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = SubscriptionPlanSerializer
     permission_classes = [IsAuthenticated]
     
+    def get_permissions(self):
+        """Restrict access to admins only."""
+        if self.action in ['list', 'retrieve', 'available']:
+            return [IsAdminUser()]
+        return [IsAuthenticated()]
+    
     @action(detail=False, methods=['get'])
     def available(self, request):
         """Get all available subscription plans."""
@@ -73,6 +86,13 @@ class SubscriptionViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['status', 'plan']
+    
+    def get_permissions(self):
+        """Restrict list and write operations to admins only."""
+        if self.action in ['list', 'create', 'update', 'partial_update', 'destroy']:
+            return [IsAdminUser()]
+        # retrieve and my_subscription are accessible to authenticated users (filtered by organization)
+        return [IsAuthenticated()]
     
     def get_queryset(self):
         """Filter subscriptions based on user permissions."""

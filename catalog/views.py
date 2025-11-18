@@ -70,6 +70,15 @@ class CohortViewSet(
     ordering_fields = ['start_date', 'name', 'created_at']
     ordering = ['-start_date']
     
+    def get_permissions(self):
+        """Restrict write operations to admin/lecturer only."""
+        if self.action in ['create', 'update', 'partial_update', 'destroy', 'generate_sessions']:
+            # Use IsAdminOrLecturerOwner from catalog permissions
+            from .permissions import IsAdminOrLecturerOwner
+            return [IsAuthenticated(), IsAdminOrLecturerOwner()]
+        # list and retrieve are accessible to all authenticated users (filtered by role)
+        return [IsAuthenticated()]
+    
     def get_queryset(self):
         """Filter queryset based on user role and organization."""
         queryset = super().get_queryset()  # OrganizationFilterMixin handles organization filtering

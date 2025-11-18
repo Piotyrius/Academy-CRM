@@ -29,6 +29,13 @@ class AssessmentViewSet(
     ordering_fields = ['due_at', 'created_at']
     ordering = ['-due_at']
     
+    def get_permissions(self):
+        """Restrict write operations to admin/lecturer only."""
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            return [permissions.IsAuthenticated(), IsAdminOrLecturerOwner()]
+        # list and retrieve are accessible to all authenticated users (filtered by role)
+        return [permissions.IsAuthenticated()]
+    
     def get_queryset(self):
         """Filter queryset based on user role and organization."""
         queryset = super().get_queryset()  # OrganizationFilterMixin handles organization filtering

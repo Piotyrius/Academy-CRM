@@ -89,13 +89,38 @@ def payroll_export(request):
 
     Query params: from=YYYY-MM-DD, to=YYYY-MM-DD
     """
-    from_date = parse_date(request.query_params.get('from'))
-    to_date = parse_date(request.query_params.get('to'))
+    from rest_framework.response import Response
+    from rest_framework import status
+    
+    from_str = request.query_params.get('from')
+    to_str = request.query_params.get('to')
+    
+    # Validate date parameters
+    if not from_str or not to_str:
+        return Response(
+            {'error': 'Both "from" and "to" date parameters are required (format: YYYY-MM-DD)'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    # Parse dates - parse_date returns None if invalid
+    from_date = parse_date(from_str)
+    to_date = parse_date(to_str)
+    
+    if from_date is None:
+        return Response(
+            {'error': f'Invalid "from" date format: {from_str}. Expected YYYY-MM-DD'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    if to_date is None:
+        return Response(
+            {'error': f'Invalid "to" date format: {to_str}. Expected YYYY-MM-DD'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
     filters = {}
-    if from_date:
-        filters['start_at__date__gte'] = from_date
-    if to_date:
-        filters['end_at__date__lte'] = to_date
+    filters['start_at__date__gte'] = from_date
+    filters['end_at__date__lte'] = to_date
     totals = (
         WorkLog.objects.filter(**filters)
         .values('lecturer')
