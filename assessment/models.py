@@ -154,6 +154,7 @@ class Grade(models.Model):
             models.Index(fields=['assessment']),
             models.Index(fields=['student']),
             models.Index(fields=['graded_at']),
+            models.Index(fields=['assessment', 'student']),  # Composite index for common query pattern
         ]
     
     def __str__(self):

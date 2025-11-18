@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1.4
 # Multi-stage build for production
 FROM python:3.11-slim as builder
 
@@ -18,9 +19,10 @@ RUN pip install --upgrade pip setuptools wheel
 # Copy only requirements first (better layer caching)
 COPY requirements/ /app/requirements/
 
-# Install Python dependencies with optimizations
-# Using --no-cache-dir saves space, but pip cache can speed up rebuilds
-RUN pip install --no-cache-dir --upgrade-strategy only-if-needed -r requirements/prod.txt
+# Install Python dependencies with BuildKit cache mount for faster rebuilds
+# Mount pip cache to speed up subsequent builds
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install --upgrade-strategy only-if-needed -r requirements/prod.txt
 
 # Production stage
 FROM python:3.11-slim

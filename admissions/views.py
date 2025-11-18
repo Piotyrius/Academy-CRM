@@ -356,31 +356,54 @@ class EnrollmentViewSet(
         enrollments = self.queryset.filter(
             id__in=enrollment_ids,
             status=EnrollmentStatus.PENDING
-        )
+        ).select_related('cohort', 'student')
         
         activated = []
         errors = []
+        enrollments_to_activate = []
         
         with transaction.atomic():
-            # Process enrollments with cohort locking to prevent race conditions
+            # Group enrollments by cohort to minimize cohort locks
+            from collections import defaultdict
+            enrollments_by_cohort = defaultdict(list)
             for enrollment in enrollments:
+                enrollments_by_cohort[enrollment.cohort_id].append(enrollment)
+            
+            # Process each cohort once
+            for cohort_id, cohort_enrollments in enrollments_by_cohort.items():
                 try:
-                    # Lock cohort for update
-                    cohort = Cohort.objects.select_for_update().get(id=enrollment.cohort.id)
+                    # Lock cohort for update (once per cohort, not per enrollment)
+                    cohort = Cohort.objects.select_for_update().get(id=cohort_id)
                     
-                    # Re-check capacity with locked cohort
+                    # Get current active count once per cohort
                     active_count = cohort.enrollments.filter(status=EnrollmentStatus.ACTIVE).count()
-                    if active_count >= cohort.capacity:
-                        errors.append(f"Enrollment {enrollment.id}: Cohort is full")
-                        continue
+                    available_spots = cohort.capacity - active_count
                     
-                    enrollment.status = EnrollmentStatus.ACTIVE
-                    enrollment.save()
+                    # Process enrollments for this cohort
+                    for enrollment in cohort_enrollments:
+                        if available_spots <= 0:
+                            errors.append(f"Enrollment {enrollment.id}: Cohort is full")
+                            continue
+                        
+                        enrollment.status = EnrollmentStatus.ACTIVE
+                        enrollments_to_activate.append(enrollment)
+                        available_spots -= 1
+                        
+                except Cohort.DoesNotExist:
+                    for enrollment in cohort_enrollments:
+                        errors.append(f"Enrollment {enrollment.id}: Cohort not found")
+                except Exception as e:
+                    for enrollment in cohort_enrollments:
+                        errors.append(f"Enrollment {enrollment.id}: {str(e)}")
+            
+            # Bulk update all enrollments at once
+            if enrollments_to_activate:
+                Enrollment.objects.bulk_update(enrollments_to_activate, fields=['status'])
+                
+                # Serialize activated enrollments
+                for enrollment in enrollments_to_activate:
                     serializer = self.get_serializer(enrollment)
                     activated.append(serializer.data)
-                except Exception as e:
-                    errors.append(f"Enrollment {enrollment.id}: {str(e)}")
-                    continue
         
         return Response({
             'activated': len(activated),

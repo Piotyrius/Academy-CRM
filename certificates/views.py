@@ -14,7 +14,9 @@ from .permissions import IsAdminOrLecturerOwner
 
 class CertificateViewSet(viewsets.ModelViewSet):
     """ViewSet for Certificate model."""
-    queryset = Certificate.objects.select_related('student', 'cohort').all()
+    queryset = Certificate.objects.select_related(
+        'student', 'cohort', 'cohort__course', 'cohort__course__program', 'cohort__lecturer'
+    ).all()
     serializer_class = CertificateSerializer
     permission_classes = [permissions.IsAuthenticated]
     filterset_fields = ['status', 'cohort', 'student']
@@ -88,19 +90,37 @@ class CertificateViewSet(viewsets.ModelViewSet):
         # Bulk issue
         if bulk_student_ids and cohort_id:
             try:
-                from accounts.models import User
+                from accounts.models import User, Role
                 from catalog.models import Cohort
                 cohort = Cohort.objects.get(id=cohort_id)
                 
+                # Batch fetch all students to avoid N+1 queries
+                students = {str(student.id): student for student in User.objects.filter(
+                    id__in=bulk_student_ids,
+                    role=Role.STUDENT
+                )}
+                
+                # Batch check enrollments if not forcing
+                enrolled_student_ids = set()
+                if not force:
+                    from admissions.models import Enrollment, EnrollmentStatus
+                    enrolled_student_ids = set(Enrollment.objects.filter(
+                        student_id__in=bulk_student_ids,
+                        cohort=cohort,
+                        status=EnrollmentStatus.ACTIVE
+                    ).values_list('student_id', flat=True))
+                
                 for student_id in bulk_student_ids:
                     try:
-                        from accounts.models import Role
-                        student = User.objects.get(id=student_id, role=Role.STUDENT)
+                        student = students.get(str(student_id))
+                        
+                        if not student:
+                            errors.append(f"Student {student_id} not found or is not a student")
+                            continue
                         
                         # Validate enrollment unless force=True
                         if not force:
-                            from admissions.utils import is_student_enrolled
-                            if not is_student_enrolled(student, cohort, status='ACTIVE'):
+                            if str(student.id) not in enrolled_student_ids:
                                 errors.append(f"Student {student.get_full_name()} is not actively enrolled in this cohort")
                                 continue
                         

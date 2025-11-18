@@ -110,6 +110,7 @@ class Enrollment(models.Model):
             models.Index(fields=['cohort']),
             models.Index(fields=['status']),
             models.Index(fields=['enrolled_at']),
+            models.Index(fields=['student', 'status']),  # Composite index for common query pattern
         ]
     
     def __str__(self):

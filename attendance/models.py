@@ -60,6 +60,7 @@ class AttendanceRecord(models.Model):
             models.Index(fields=['student']),
             models.Index(fields=['status']),
             models.Index(fields=['marked_at']),
+            models.Index(fields=['session', 'student']),  # Composite index for common query pattern
         ]
     
     def __str__(self):

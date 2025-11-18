@@ -178,7 +178,9 @@ class StudentPortalViewSet(viewsets.ViewSet):
         """Get student's enrollments."""
         from admissions.models import Enrollment
         from admissions.serializers import EnrollmentSerializer
-        enrollments = Enrollment.objects.filter(student=request.user)
+        enrollments = Enrollment.objects.filter(student=request.user).select_related(
+            'cohort', 'cohort__course', 'cohort__course__program', 'cohort__lecturer'
+        )
         serializer = EnrollmentSerializer(enrollments, many=True, context={'request': request})
         return Response(serializer.data)
     
@@ -187,7 +189,9 @@ class StudentPortalViewSet(viewsets.ViewSet):
         """Get student's attendance records."""
         from attendance.models import AttendanceRecord
         from attendance.serializers import AttendanceRecordSerializer
-        attendance_records = AttendanceRecord.objects.filter(student=request.user)
+        attendance_records = AttendanceRecord.objects.filter(student=request.user).select_related(
+            'session', 'session__cohort', 'marked_by'
+        )
         serializer = AttendanceRecordSerializer(attendance_records, many=True, context={'request': request})
         return Response(serializer.data)
     
@@ -200,7 +204,10 @@ class StudentPortalViewSet(viewsets.ViewSet):
         # Get cohorts student is enrolled in
         enrollments = Enrollment.objects.filter(student=request.user, status='ACTIVE')
         cohort_ids = enrollments.values_list('cohort_id', flat=True)
-        assessments = Assessment.objects.filter(cohort_id__in=cohort_ids, published=True)
+        assessments = Assessment.objects.filter(
+            cohort_id__in=cohort_ids, 
+            published=True
+        ).select_related('cohort', 'cohort__course', 'cohort__lecturer')
         serializer = AssessmentSerializer(assessments, many=True, context={'request': request})
         return Response(serializer.data)
     
@@ -209,7 +216,9 @@ class StudentPortalViewSet(viewsets.ViewSet):
         """Get student's grades."""
         from assessment.models import Grade
         from assessment.serializers import GradeSerializer
-        grades = Grade.objects.filter(student=request.user)
+        grades = Grade.objects.filter(student=request.user).select_related(
+            'assessment', 'assessment__cohort', 'graded_by'
+        )
         serializer = GradeSerializer(grades, many=True, context={'request': request})
         return Response(serializer.data)
     
@@ -218,6 +227,8 @@ class StudentPortalViewSet(viewsets.ViewSet):
         """Get student's certificates."""
         from certificates.models import Certificate
         from certificates.serializers import CertificateSerializer
-        certificates = Certificate.objects.filter(student=request.user)
+        certificates = Certificate.objects.filter(student=request.user).select_related(
+            'cohort', 'cohort__course', 'cohort__course__program'
+        )
         serializer = CertificateSerializer(certificates, many=True, context={'request': request})
         return Response(serializer.data)

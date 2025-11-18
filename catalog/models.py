@@ -179,6 +179,7 @@ class Session(models.Model):
             models.Index(fields=['cohort']),
             models.Index(fields=['start_at']),
             models.Index(fields=['is_cancelled']),
+            models.Index(fields=['cohort', 'start_at']),  # Composite index for common query pattern
         ]
     
     def __str__(self):

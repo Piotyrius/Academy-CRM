@@ -51,36 +51,48 @@ class CertificateService:
             details['eligible'] = False
             return False, details
         
-        # Check attendance
-        total_sessions = cohort.sessions.filter(is_cancelled=False).count()
+        # Check attendance - optimized single query with aggregation
+        from django.db.models import Count, Q
+        attendance_stats = cohort.sessions.filter(is_cancelled=False).aggregate(
+            total=Count('id'),
+            present=Count('attendance_records', filter=Q(
+                attendance_records__student=student,
+                attendance_records__status__in=[AttendanceStatus.PRESENT, AttendanceStatus.LATE]
+            ))
+        )
+        
+        total_sessions = attendance_stats['total']
         if total_sessions > 0:
-            present_count = AttendanceRecord.objects.filter(
-                session__cohort=cohort,
-                student=student,
-                status__in=[AttendanceStatus.PRESENT, AttendanceStatus.LATE]
-            ).count()
-            
+            present_count = attendance_stats['present']
             attendance_percentage = (present_count / total_sessions) * 100
             details['attendance_percentage'] = float(attendance_percentage)
             details['attendance_eligible'] = attendance_percentage >= cls.ATTENDANCE_THRESHOLD
         else:
             details['attendance_eligible'] = False
         
-        # Check grades
+        # Check grades - fetch all grades in one query to avoid N+1
         assessments = cohort.assessments.filter(published=True)
         if assessments.exists():
+            # Fetch all grades for this student and these assessments in one query
+            assessment_ids = list(assessments.values_list('id', flat=True))
+            grades = Grade.objects.filter(
+                assessment_id__in=assessment_ids,
+                student=student
+            ).select_related('assessment')
+            
+            # Build a dictionary for O(1) lookup
+            grades_dict = {grade.assessment_id: grade for grade in grades}
+            
             total_weight = Decimal('0')
             weighted_score = Decimal('0')
             
             for assessment in assessments:
-                try:
-                    grade = Grade.objects.get(assessment=assessment, student=student)
+                grade = grades_dict.get(assessment.id)
+                if grade:
                     percentage = grade.percentage
                     weight = Decimal(str(assessment.weight))
                     weighted_score += (percentage * weight / 100)
                     total_weight += weight
-                except Grade.DoesNotExist:
-                    pass
             
             if total_weight > 0:
                 weighted_grade = (weighted_score / total_weight) * 100

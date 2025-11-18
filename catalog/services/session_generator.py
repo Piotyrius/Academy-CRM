@@ -76,8 +76,15 @@ class SessionGenerator:
                 except ValueError:
                     continue
         
-        # Generate recurrence rule
-        sessions = []
+        # Fetch all existing sessions for this cohort once to avoid N+1 queries
+        existing_sessions = Session.objects.filter(cohort=self.cohort).values_list('start_at', 'end_at', flat=False)
+        
+        # Build sets for fast lookup
+        existing_start_times = {session[0] for session in existing_sessions}
+        existing_sessions_list = list(existing_sessions)  # List of (start_at, end_at) tuples
+        
+        # Generate recurrence rule and collect sessions to create
+        sessions_to_create = []
         for weekday in weekdays:
             rule = rrule.rrule(
                 rrule.WEEKLY,
@@ -108,27 +115,31 @@ class SessionGenerator:
                 if end_datetime.date() > end_date:
                     continue
                 
-                # Check if session already exists at this start time
-                if Session.objects.filter(cohort=self.cohort, start_at=dt).exists():
+                # Check if session already exists at this start time (in-memory lookup)
+                if dt in existing_start_times:
                     continue
                 
-                # Check for overlapping sessions (sessions that overlap in time)
+                # Check for overlapping sessions (in-memory check)
                 # Two sessions overlap if: start1 < end2 AND start2 < end1
-                overlapping = Session.objects.filter(
-                    cohort=self.cohort,
-                    start_at__lt=end_datetime,
-                    end_at__gt=dt
-                ).exists()
+                overlaps = any(
+                    existing_start < end_datetime and dt < existing_end
+                    for existing_start, existing_end in existing_sessions_list
+                )
                 
-                if overlapping:
+                if overlaps:
                     continue
                 
-                # Create session
-                session = Session.objects.create(
+                # Prepare session for bulk create
+                sessions_to_create.append(Session(
                     cohort=self.cohort,
                     start_at=dt,
-                    end_at=end_datetime
-                )
-                sessions.append(session)
+                    end_at=end_datetime,
+                    organization=self.cohort.organization
+                ))
         
-        return sessions
+        # Bulk create all sessions at once
+        if sessions_to_create:
+            sessions = Session.objects.bulk_create(sessions_to_create)
+            return sessions
+        
+        return []
