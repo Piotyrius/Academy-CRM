@@ -69,9 +69,19 @@ class CertificateViewSet(viewsets.ModelViewSet):
                 student = User.objects.get(id=student_id, role=Role.STUDENT)
                 cohort = Cohort.objects.get(id=cohort_id)
                 
-                cert = CertificateService.issue_certificate(student, cohort, force=force)
-                serializer = self.get_serializer(cert)
-                results.append(serializer.data)
+                # Validate enrollment unless force=True
+                if not force:
+                    from admissions.utils import is_student_enrolled
+                    if not is_student_enrolled(student, cohort, status='ACTIVE'):
+                        errors.append(f"Student {student.get_full_name()} is not actively enrolled in this cohort")
+                    else:
+                        cert = CertificateService.issue_certificate(student, cohort, force=force)
+                        serializer = self.get_serializer(cert)
+                        results.append(serializer.data)
+                else:
+                    cert = CertificateService.issue_certificate(student, cohort, force=force)
+                    serializer = self.get_serializer(cert)
+                    results.append(serializer.data)
             except Exception as e:
                 errors.append(str(e))
         
@@ -86,6 +96,14 @@ class CertificateViewSet(viewsets.ModelViewSet):
                     try:
                         from accounts.models import Role
                         student = User.objects.get(id=student_id, role=Role.STUDENT)
+                        
+                        # Validate enrollment unless force=True
+                        if not force:
+                            from admissions.utils import is_student_enrolled
+                            if not is_student_enrolled(student, cohort, status='ACTIVE'):
+                                errors.append(f"Student {student.get_full_name()} is not actively enrolled in this cohort")
+                                continue
+                        
                         cert = CertificateService.issue_certificate(student, cohort, force=force)
                         serializer = self.get_serializer(cert)
                         results.append(serializer.data)

@@ -5,6 +5,7 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.exceptions import ValidationError
 from django.db import transaction
 from subscriptions.mixins import (
     OrganizationFilterMixin, FeatureRequiredMixin, OrganizationAutoSetMixin
@@ -157,6 +158,46 @@ class SessionViewSet(
             queryset = queryset.filter(start_at__date__lte=date_to)
         
         return queryset
+    
+    def perform_create(self, serializer):
+        """Validate session time and cohort dates."""
+        cohort = serializer.validated_data['cohort']
+        start_at = serializer.validated_data['start_at']
+        end_at = serializer.validated_data['end_at']
+        
+        # Validate that start_at < end_at
+        if start_at >= end_at:
+            raise ValidationError({
+                'end_at': 'Session end time must be after start time.'
+            })
+        
+        # Validate that session dates are within cohort date range
+        if start_at.date() < cohort.start_date or end_at.date() > cohort.end_date:
+            raise ValidationError({
+                'start_at': f'Session dates must be within cohort date range ({cohort.start_date} to {cohort.end_date}).'
+            })
+        
+        serializer.save()
+    
+    def perform_update(self, serializer):
+        """Validate session time and cohort dates on update."""
+        cohort = serializer.validated_data.get('cohort') or serializer.instance.cohort
+        start_at = serializer.validated_data.get('start_at') or serializer.instance.start_at
+        end_at = serializer.validated_data.get('end_at') or serializer.instance.end_at
+        
+        # Validate that start_at < end_at
+        if start_at >= end_at:
+            raise ValidationError({
+                'end_at': 'Session end time must be after start time.'
+            })
+        
+        # Validate that session dates are within cohort date range
+        if start_at.date() < cohort.start_date or end_at.date() > cohort.end_date:
+            raise ValidationError({
+                'start_at': f'Session dates must be within cohort date range ({cohort.start_date} to {cohort.end_date}).'
+            })
+        
+        serializer.save()
 
 
 class LecturerViewSet(FeatureRequiredMixin, viewsets.ViewSet):

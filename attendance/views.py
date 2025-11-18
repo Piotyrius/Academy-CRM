@@ -4,6 +4,7 @@ Views for attendance app.
 from rest_framework import viewsets, status, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.exceptions import ValidationError
 from django.db import transaction
 from django.utils import timezone
 from django.http import Http404
@@ -55,7 +56,17 @@ class AttendanceRecordViewSet(
             raise Http404(f"No {model_name} matches the given query.")
     
     def perform_create(self, serializer):
-        """Set marked_by to current user."""
+        """Set marked_by to current user and validate enrollment."""
+        session = serializer.validated_data['session']
+        student = serializer.validated_data['student']
+        
+        # Validate that student is enrolled in the cohort
+        from admissions.utils import is_student_enrolled
+        if not is_student_enrolled(student, session.cohort, status='ACTIVE'):
+            raise ValidationError({
+                'student': 'Student must be actively enrolled in this cohort to mark attendance.'
+            })
+        
         serializer.save(marked_by=self.request.user)
     
     @action(detail=False, methods=['post'])
@@ -94,6 +105,12 @@ class AttendanceRecordViewSet(
                     student = User.objects.get(id=record_data['student_id'], role=Role.STUDENT)
                 except User.DoesNotExist:
                     errors.append(f"Student {record_data['student_id']} not found")
+                    continue
+                
+                # Validate that student is enrolled in the cohort
+                from admissions.utils import is_student_enrolled
+                if not is_student_enrolled(student, session.cohort, status='ACTIVE'):
+                    errors.append(f"Student {student.get_full_name()} is not actively enrolled in this cohort")
                     continue
                 
                 status_value = record_data.get('status', AttendanceStatus.ABSENT)

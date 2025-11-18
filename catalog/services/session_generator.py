@@ -93,8 +93,8 @@ class SessionGenerator:
                 if dt.date() in excluded_dates:
                     continue
                 
-                # Check if session already exists
-                if Session.objects.filter(cohort=self.cohort, start_at=dt).exists():
+                # Validate that session date is within cohort date range
+                if dt.date() < start_date or dt.date() > end_date:
                     continue
                 
                 # Calculate end time
@@ -103,6 +103,25 @@ class SessionGenerator:
                     minutes=(end_min - start_min)
                 )
                 end_datetime = dt + duration
+                
+                # Validate that end time is within cohort date range
+                if end_datetime.date() > end_date:
+                    continue
+                
+                # Check if session already exists at this start time
+                if Session.objects.filter(cohort=self.cohort, start_at=dt).exists():
+                    continue
+                
+                # Check for overlapping sessions (sessions that overlap in time)
+                # Two sessions overlap if: start1 < end2 AND start2 < end1
+                overlapping = Session.objects.filter(
+                    cohort=self.cohort,
+                    start_at__lt=end_datetime,
+                    end_at__gt=dt
+                ).exists()
+                
+                if overlapping:
+                    continue
                 
                 # Create session
                 session = Session.objects.create(

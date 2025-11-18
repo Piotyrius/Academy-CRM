@@ -25,12 +25,31 @@ class CertificateService:
             (is_eligible, details)
         """
         details = {
+            'enrolled': False,
+            'enrollment_status': None,
             'attendance_percentage': 0,
             'weighted_grade': 0,
             'attendance_eligible': False,
             'grade_eligible': False,
             'eligible': False
         }
+        
+        # Check enrollment status first
+        from admissions.utils import get_student_enrollment
+        enrollment = get_student_enrollment(student, cohort)
+        
+        if not enrollment:
+            details['eligible'] = False
+            return False, details
+        
+        details['enrolled'] = True
+        details['enrollment_status'] = enrollment.status
+        
+        # Student must have ACTIVE enrollment to be eligible
+        from admissions.models import EnrollmentStatus
+        if enrollment.status != EnrollmentStatus.ACTIVE:
+            details['eligible'] = False
+            return False, details
         
         # Check attendance
         total_sessions = cohort.sessions.filter(is_cancelled=False).count()
@@ -89,7 +108,7 @@ class CertificateService:
         Returns:
             Certificate instance
         """
-        from certificates.models import Certificate
+        from certificates.models import Certificate, CertificateStatus
         
         # Check if certificate already exists
         cert, created = Certificate.objects.get_or_create(

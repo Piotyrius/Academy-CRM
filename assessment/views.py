@@ -4,6 +4,7 @@ Views for assessment app.
 from rest_framework import viewsets, status, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.exceptions import ValidationError
 from django.utils import timezone
 from django.http import Http404
 from subscriptions.mixins import (
@@ -94,6 +95,19 @@ class SubmissionViewSet(
         student = self.request.user
         assessment = serializer.validated_data['assessment']
         
+        # Validate that assessment is published
+        if not assessment.published:
+            raise ValidationError({
+                'assessment': 'Cannot submit to unpublished assessment.'
+            })
+        
+        # Validate that student is enrolled in the cohort
+        from admissions.utils import is_student_enrolled
+        if not is_student_enrolled(student, assessment.cohort, status='ACTIVE'):
+            raise ValidationError({
+                'assessment': 'You must be actively enrolled in this cohort to submit assessments.'
+            })
+        
         # Check if late
         late_flag = timezone.now() > assessment.due_at
         
@@ -138,7 +152,17 @@ class GradeViewSet(
             raise Http404(f"No {model_name} matches the given query.")
     
     def perform_create(self, serializer):
-        """Set graded_by to current user."""
+        """Set graded_by to current user and validate enrollment."""
+        assessment = serializer.validated_data['assessment']
+        student = serializer.validated_data['student']
+        
+        # Validate that student is enrolled in the cohort
+        from admissions.utils import is_student_enrolled
+        if not is_student_enrolled(student, assessment.cohort, status='ACTIVE'):
+            raise ValidationError({
+                'student': 'Student must be actively enrolled in this cohort to receive grades.'
+            })
+        
         serializer.save(graded_by=self.request.user)
     
     @action(detail=True, methods=['post'])
