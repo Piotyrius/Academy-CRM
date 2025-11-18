@@ -5,13 +5,24 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
+from django.http import JsonResponse
 from drf_spectacular.views import (
     SpectacularRedocView,
     SpectacularSwaggerView,
 )
 from academy_crm.views import CustomSpectacularAPIView
 
+def root_view(request):
+    """Simple root endpoint to avoid 404 warnings."""
+    return JsonResponse({
+        'name': 'Academy CRM API',
+        'version': '1.0',
+        'docs': '/api/docs/',
+        'health': '/health/'
+    })
+
 urlpatterns = [
+    path('', root_view, name='root'),
     path('admin/', admin.site.urls),
     path('health/', include('health_check.urls')),
     

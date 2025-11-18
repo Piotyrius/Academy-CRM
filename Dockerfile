@@ -14,15 +14,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Upgrade pip for faster installs
-RUN pip install --upgrade pip setuptools wheel
+# Suppress root user warning (safe in Docker containers)
+RUN pip install --root-user-action=ignore --upgrade pip setuptools wheel
 
 # Copy only requirements first (better layer caching)
 COPY requirements/ /app/requirements/
 
 # Install Python dependencies with BuildKit cache mount for faster rebuilds
 # Mount pip cache to speed up subsequent builds
+# Suppress root user warning (safe in Docker containers)
 RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install --upgrade-strategy only-if-needed -r requirements/prod.txt
+    pip install --root-user-action=ignore --upgrade-strategy only-if-needed -r requirements/prod.txt
 
 # Production stage
 FROM python:3.11-slim
