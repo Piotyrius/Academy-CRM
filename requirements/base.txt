@@ -27,6 +27,7 @@ qrcode[pil]==8.0
 
 # Storage
 django-storages==1.14.3
+whitenoise==6.8.2  # Static file serving (used in all environments)
 
 # Database
 psycopg2-binary==2.9.10
