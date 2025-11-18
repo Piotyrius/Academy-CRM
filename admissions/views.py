@@ -6,6 +6,10 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db import transaction, models
 from django.utils import timezone
+from django.core.mail import send_mail
+from django.conf import settings
+import secrets
+import string
 from subscriptions.mixins import (
     OrganizationFilterMixin, FeatureRequiredMixin, OrganizationAutoSetMixin
 )
@@ -36,14 +40,77 @@ class ApplicationViewSet(
             return [permissions.AllowAny()]
         return [permissions.IsAuthenticated(), IsAdminOrLecturerOwner()]
     
+    def _parse_name(self, full_name):
+        """Parse full name into first_name and last_name, handling edge cases."""
+        if not full_name or not full_name.strip():
+            return '', ''
+        
+        name_parts = full_name.strip().split()
+        
+        if len(name_parts) == 0:
+            return '', ''
+        elif len(name_parts) == 1:
+            return name_parts[0], ''
+        else:
+            # First part is first name, rest is last name
+            return name_parts[0], ' '.join(name_parts[1:])
+    
+    def _generate_temp_password(self):
+        """Generate a secure temporary password."""
+        alphabet = string.ascii_letters + string.digits + string.punctuation
+        # Generate 12-character password
+        password = ''.join(secrets.choice(alphabet) for _ in range(12))
+        return password
+    
+    def _send_password_setup_email(self, user, temp_password):
+        """Send password setup email to new user."""
+        try:
+            # Get frontend URL from settings or use request origin
+            frontend_url = getattr(settings, 'FRONTEND_URL', None)
+            if not frontend_url:
+                frontend_url = 'https://your-academy.com'  # Default fallback
+            
+            reset_link = f"{frontend_url}/reset-password?email={user.email}"
+            
+            send_mail(
+                subject='Welcome to Academy - Set Your Password',
+                message=f'''Welcome to {user.organization.name if user.organization else "the Academy"}!
+
+Your account has been created. Please set your password using the link below:
+
+{reset_link}
+
+Or use this temporary password to login: {temp_password}
+
+Please change your password after first login.
+
+This link will expire in 7 days.''',
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[user.email],
+                fail_silently=False,
+            )
+        except Exception as e:
+            # Log error but don't fail the enrollment creation
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Failed to send password setup email to {user.email}: {e}")
+    
     @action(detail=True, methods=['post'])
     def accept(self, request, pk=None):
         """Accept application and create enrollment."""
         application = self.get_object()
         
-        if application.status != ApplicationStatus.ACCEPTED:
+        # Check if already accepted
+        if application.status == ApplicationStatus.ACCEPTED:
             return Response(
-                {'error': 'Application must be accepted first'},
+                {'error': 'Application is already accepted'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Check if already rejected
+        if application.status == ApplicationStatus.REJECTED:
+            return Response(
+                {'error': 'Cannot accept a rejected application'},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
@@ -57,41 +124,108 @@ class ApplicationViewSet(
         
         try:
             from catalog.models import Cohort
-            cohort = Cohort.objects.get(id=cohort_id)
+            cohort = Cohort.objects.select_for_update().get(id=cohort_id)
         except Cohort.DoesNotExist:
             return Response(
                 {'error': 'Cohort not found'},
                 status=status.HTTP_404_NOT_FOUND
             )
         
-        # Check if student user exists or create
-        try:
-            from accounts.models import User
-            student = User.objects.get(email=application.email)
-            if student.role != Role.STUDENT:
-                return Response(
-                    {'error': 'User with this email is not a student'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-        except User.DoesNotExist:
-            # Create student user
-            student = User.objects.create_user(
-                email=application.email,
-                first_name=application.name.split()[0] if application.name.split() else '',
-                last_name=' '.join(application.name.split()[1:]) if len(application.name.split()) > 1 else '',
-                phone=application.phone,
-                role=Role.STUDENT
+        # Validate that cohort's program matches application's program
+        if cohort.course.program != application.program:
+            return Response(
+                {
+                    'error': 'Program mismatch',
+                    'detail': f'Application is for program "{application.program.name}" but cohort belongs to program "{cohort.course.program.name}"'
+                },
+                status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Create enrollment
-        enrollment, created = Enrollment.objects.get_or_create(
-            student=student,
-            cohort=cohort,
-            defaults={'status': EnrollmentStatus.PENDING}
-        )
+        # Get organization from application or request context
+        organization = application.organization
+        if not organization:
+            organization = getattr(request, 'organization', None)
+            if not organization and hasattr(request.user, 'organization'):
+                organization = request.user.organization
+        
+        with transaction.atomic():
+            # Lock cohort for update to prevent race condition
+            cohort = Cohort.objects.select_for_update().get(id=cohort_id)
+            
+            # Check if student user exists or create
+            user_created = False
+            temp_password = None
+            try:
+                from accounts.models import User
+                student = User.objects.get(email=application.email)
+                if student.role != Role.STUDENT:
+                    return Response(
+                        {'error': 'User with this email is not a student'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+                # Update organization if not set
+                if not student.organization and organization:
+                    student.organization = organization
+                    student.save()
+            except User.DoesNotExist:
+                # Parse name
+                first_name, last_name = self._parse_name(application.name)
+                
+                # Generate temporary password
+                temp_password = self._generate_temp_password()
+                
+                # Create student user
+                student = User.objects.create_user(
+                    email=application.email,
+                    first_name=first_name,
+                    last_name=last_name,
+                    phone=application.phone,
+                    role=Role.STUDENT,
+                    organization=organization
+                )
+                user_created = True
+                
+                # Set temporary password
+                student.set_password(temp_password)
+                student.save()
+            
+            # Check capacity before creating enrollment
+            active_count = cohort.enrollments.filter(status=EnrollmentStatus.ACTIVE).count()
+            has_capacity = active_count < cohort.capacity
+            
+            # Determine enrollment status
+            enrollment_status = EnrollmentStatus.ACTIVE if has_capacity else EnrollmentStatus.PENDING
+            
+            # Create enrollment with organization
+            enrollment, created = Enrollment.objects.get_or_create(
+                student=student,
+                cohort=cohort,
+                defaults={
+                    'status': enrollment_status,
+                    'organization': organization or cohort.organization
+                }
+            )
+            
+            # If enrollment already exists, update status if needed
+            if not created and enrollment.status == EnrollmentStatus.PENDING and has_capacity:
+                enrollment.status = EnrollmentStatus.ACTIVE
+                enrollment.save()
+            
+            # Set application status to ACCEPTED
+            application.status = ApplicationStatus.ACCEPTED
+            application.save()
+            
+            # Send password setup email if user was just created
+            if user_created and temp_password:
+                self._send_password_setup_email(student, temp_password)
         
         serializer = EnrollmentSerializer(enrollment)
-        return Response(serializer.data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+        response_data = serializer.data
+        response_data['user_created'] = user_created
+        if user_created:
+            response_data['message'] = 'Student account created. Password setup email sent.'
+        
+        return Response(response_data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 
 
 class EnrollmentViewSet(
@@ -126,7 +260,7 @@ class EnrollmentViewSet(
     
     @action(detail=True, methods=['post'])
     def activate(self, request, pk=None):
-        """Activate enrollment (check capacity)."""
+        """Activate enrollment (check capacity with race condition protection)."""
         enrollment = self.get_object()
         
         if enrollment.status != EnrollmentStatus.PENDING:
@@ -135,16 +269,20 @@ class EnrollmentViewSet(
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Check capacity
-        cohort = enrollment.cohort
-        if cohort.is_full:
-            return Response(
-                {'error': 'Cohort is full'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        enrollment.status = EnrollmentStatus.ACTIVE
-        enrollment.save()
+        with transaction.atomic():
+            # Lock cohort for update to prevent race condition
+            cohort = Cohort.objects.select_for_update().get(id=enrollment.cohort.id)
+            
+            # Re-check capacity with locked cohort
+            active_count = cohort.enrollments.filter(status=EnrollmentStatus.ACTIVE).count()
+            if active_count >= cohort.capacity:
+                return Response(
+                    {'error': 'Cohort is full'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            enrollment.status = EnrollmentStatus.ACTIVE
+            enrollment.save()
         
         serializer = self.get_serializer(enrollment)
         return Response(serializer.data)
@@ -224,15 +362,25 @@ class EnrollmentViewSet(
         errors = []
         
         with transaction.atomic():
+            # Process enrollments with cohort locking to prevent race conditions
             for enrollment in enrollments:
-                if enrollment.cohort.is_full:
-                    errors.append(f"Enrollment {enrollment.id}: Cohort is full")
+                try:
+                    # Lock cohort for update
+                    cohort = Cohort.objects.select_for_update().get(id=enrollment.cohort.id)
+                    
+                    # Re-check capacity with locked cohort
+                    active_count = cohort.enrollments.filter(status=EnrollmentStatus.ACTIVE).count()
+                    if active_count >= cohort.capacity:
+                        errors.append(f"Enrollment {enrollment.id}: Cohort is full")
+                        continue
+                    
+                    enrollment.status = EnrollmentStatus.ACTIVE
+                    enrollment.save()
+                    serializer = self.get_serializer(enrollment)
+                    activated.append(serializer.data)
+                except Exception as e:
+                    errors.append(f"Enrollment {enrollment.id}: {str(e)}")
                     continue
-                
-                enrollment.status = EnrollmentStatus.ACTIVE
-                enrollment.save()
-                serializer = self.get_serializer(enrollment)
-                activated.append(serializer.data)
         
         return Response({
             'activated': len(activated),
