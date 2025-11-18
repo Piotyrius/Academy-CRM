@@ -4,6 +4,21 @@ Custom permissions for accounts app.
 from rest_framework import permissions
 
 
+class IsAdminUser(permissions.BasePermission):
+    """
+    Permission to allow only admin users.
+    Uses the custom is_admin property instead of is_staff.
+    """
+    
+    def has_permission(self, request, view):
+        """Check if user is admin."""
+        return bool(
+            request.user and
+            request.user.is_authenticated and
+            getattr(request.user, 'is_admin', False)
+        )
+
+
 class IsAdminOrSelf(permissions.BasePermission):
     """
     Permission to allow users to view/edit themselves,

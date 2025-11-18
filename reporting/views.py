@@ -7,6 +7,7 @@ from django.http import HttpResponse
 import csv
 from io import StringIO
 from accounts.models import User
+from accounts.permissions import IsAdminUser
 from catalog.models import Program, Cohort
 from admissions.models import Application, Enrollment
 from attendance.models import AttendanceRecord
@@ -16,7 +17,7 @@ from certificates.models import Certificate
 
 class CSVExportView(views.APIView):
     """Base view for CSV exports."""
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [IsAdminUser]
     
     def get_csv_response(self, filename, rows, headers):
         """Generate CSV response."""

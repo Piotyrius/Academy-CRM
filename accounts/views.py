@@ -15,7 +15,7 @@ from .serializers import (
     UserSerializer, UserCreateSerializer, CustomTokenObtainPairSerializer,
     PasswordResetRequestSerializer, PasswordResetConfirmSerializer
 )
-from .permissions import IsAdminOrSelf
+from .permissions import IsAdminOrSelf, IsAdminUser
 
 User = get_user_model()
 
@@ -50,7 +50,7 @@ class UserViewSet(viewsets.ModelViewSet):
             return [permissions.IsAuthenticated()]
         if self.action in ['list', 'retrieve', 'update', 'partial_update', 'destroy']:
             return [permissions.IsAuthenticated(), IsAdminOrSelf()]
-        return [permissions.IsAdminUser()]
+        return [IsAdminUser()]
     
     @action(detail=False, methods=['get'])
     def me(self, request):
