@@ -11,11 +11,18 @@ class OrganizationFilterMixin:
     """
     Mixin to filter queryset by organization.
     Add this to ViewSets that need organization-based filtering.
+    
+    Admin users bypass organization filtering and can see all records.
     """
     
     def get_queryset(self):
         """Filter queryset by organization."""
         queryset = super().get_queryset()
+        
+        # Admin users bypass organization filtering - they can see all records
+        if hasattr(self.request, 'user') and self.request.user.is_authenticated:
+            if getattr(self.request.user, 'is_admin', False):
+                return queryset  # Admins see everything
         
         # Get organization from request
         organization = getattr(self.request, 'organization', None)
@@ -47,6 +54,11 @@ class FeatureRequiredMixin:
         super().initial(request, *args, **kwargs)
         
         if self.required_feature:
+            # Admin users bypass feature checks - they have access to all features
+            if hasattr(request, 'user') and request.user.is_authenticated:
+                if getattr(request.user, 'is_admin', False):
+                    return  # Admin users have access to all features
+            
             # Get organization from request
             organization = getattr(request, 'organization', None)
             

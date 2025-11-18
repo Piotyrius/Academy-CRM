@@ -170,7 +170,11 @@ def password_reset_confirm(request):
 
 # Student portal views
 class StudentPortalViewSet(viewsets.ViewSet):
-    """ViewSet for student portal endpoints."""
+    """
+    ViewSet for student portal endpoints.
+    Returns data filtered by the current user (student=request.user).
+    Works for any authenticated user, but typically used by students.
+    """
     permission_classes = [permissions.IsAuthenticated]
     
     @action(detail=False, methods=['get'])

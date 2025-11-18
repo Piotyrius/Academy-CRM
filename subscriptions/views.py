@@ -38,8 +38,8 @@ class OrganizationViewSet(viewsets.ModelViewSet):
         """Filter organizations based on user permissions."""
         user = self.request.user
         
-        # Superusers can see all organizations
-        if user.is_superuser:
+        # Admin users can see all organizations
+        if getattr(user, 'is_admin', False) or user.is_superuser:
             return Organization.objects.all()
         
         # Regular users can only see their own organization
@@ -108,8 +108,8 @@ class SubscriptionViewSet(viewsets.ModelViewSet):
         """Filter subscriptions based on user permissions."""
         user = self.request.user
         
-        # Superusers can see all subscriptions
-        if user.is_superuser:
+        # Admin users can see all subscriptions
+        if getattr(user, 'is_admin', False) or user.is_superuser:
             return Subscription.objects.all()
         
         # Regular users can only see their organization's subscription

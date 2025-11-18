@@ -18,6 +18,34 @@ class UserSerializer(serializers.ModelSerializer):
             'date_joined', 'last_login'
         ]
         read_only_fields = ['id', 'date_joined', 'last_login']
+    
+    def validate_role(self, value):
+        """Prevent users from changing their own role (unless admin)."""
+        request = self.context.get('request')
+        if request and request.user:
+            # If updating self and not admin, don't allow role change
+            if self.instance and self.instance == request.user:
+                if not getattr(request.user, 'is_admin', False):
+                    # Non-admin users cannot change their own role
+                    if value != self.instance.role:
+                        raise serializers.ValidationError(
+                            'You cannot change your own role. Contact an administrator.'
+                        )
+        return value
+    
+    def validate(self, attrs):
+        """Additional validation for user updates."""
+        request = self.context.get('request')
+        if request and request.user and self.instance:
+            # If updating self and not admin, don't allow certain changes
+            if self.instance == request.user:
+                if not getattr(request.user, 'is_admin', False):
+                    # Non-admin users cannot deactivate themselves
+                    if 'is_active' in attrs and attrs['is_active'] is False:
+                        raise serializers.ValidationError({
+                            'is_active': 'You cannot deactivate your own account.'
+                        })
+        return attrs
 
 
 class UserCreateSerializer(serializers.ModelSerializer):
