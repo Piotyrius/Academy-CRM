@@ -4,7 +4,7 @@ Payment service for managing payments.
 import uuid
 from decimal import Decimal
 from django.utils import timezone
-from .models import Payment, PaymentStatus, PaymentMethodCode
+from ..models import Payment, PaymentStatus, PaymentMethodCode
 from .invoice_service import InvoiceService
 
 
