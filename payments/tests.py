@@ -1,11 +1,13 @@
 """
-Comprehensive tests for payments app.
+Comprehensive tests for payments app using Django TestCase.
 """
-import pytest
 from decimal import Decimal
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
+from django.test import TestCase
 from django.utils import timezone
 from django.contrib.contenttypes.models import ContentType
+from django.core.exceptions import ValidationError
+from rest_framework.test import APIClient
 from rest_framework import status
 from payments.models import (
     Pricing, PaymentPlan, Discount, Invoice, Payment,
@@ -19,12 +21,118 @@ from payments.services import (
 )
 from catalog.models import Program, Course, Cohort
 from admissions.models import Enrollment, EnrollmentStatus
-from accounts.models import Role
+from accounts.models import User, Role
 from subscriptions.models import Organization
 
 
-@pytest.fixture
-def organization(db):
+class PaymentsTestCase(TestCase):
+    """Base test case with common setup."""
+    
+    def setUp(self):
+        """Set up test data."""
+        self.organization = Organization.objects.create(
+            name='Test Academy',
+            domain='testacademy',
+            status='ACTIVE'
+        )
+        
+        self.admin_user = User.objects.create_user(
+            email='admin@test.com',
+            password='testpass123',
+            first_name='Admin',
+            last_name='User',
+            role=Role.ADMIN,
+            organization=self.organization
+        )
+        
+        self.student_user = User.objects.create_user(
+            email='student@test.com',
+            password='testpass123',
+            first_name='Student',
+            last_name='User',
+            role=Role.STUDENT,
+            organization=self.organization
+        )
+        
+        self.program = Program.objects.create(
+            organization=self.organization,
+            name='Full Stack Development',
+            code='FSD',
+            active=True
+        )
+        
+        self.course = Course.objects.create(
+            organization=self.organization,
+            program=self.program,
+            title='Web Development',
+            code='WD101',
+            hours=120
+        )
+        
+        start_date = date.today()
+        end_date = start_date + timedelta(days=90)
+        self.cohort = Cohort.objects.create(
+            organization=self.organization,
+            course=self.course,
+            name='FSD Cohort 2025-01',
+            capacity=25,
+            start_date=start_date,
+            end_date=end_date
+        )
+        
+        self.enrollment = Enrollment.objects.create(
+            organization=self.organization,
+            student=self.student_user,
+            cohort=self.cohort,
+            status=EnrollmentStatus.ACTIVE
+        )
+        
+        # Create pricing for cohort
+        content_type = ContentType.objects.get_for_model(Cohort)
+        self.pricing_cohort = Pricing.objects.create(
+            organization=self.organization,
+            content_type=content_type,
+            object_id=self.cohort.id,
+            amount=Decimal('1000.00'),
+            currency='USD',
+            effective_from=date.today(),
+            is_active=True
+        )
+        
+        # Create payment plans
+        self.payment_plan_monthly = PaymentPlan.objects.create(
+            organization=self.organization,
+            name='Monthly Installments',
+            type=PaymentPlanType.MONTHLY,
+            installment_count=3,
+            discount_percentage=Decimal('0.00')
+        )
+        
+        self.payment_plan_full = PaymentPlan.objects.create(
+            organization=self.organization,
+            name='Full Payment',
+            type=PaymentPlanType.FULL,
+            discount_percentage=Decimal('10.00')
+        )
+        
+        # Create discounts
+        self.discount_full_payment = Discount.objects.create(
+            organization=self.organization,
+            name='Early Bird Discount',
+            type=DiscountType.PERCENTAGE,
+            value=Decimal('15.00'),
+            applicable_to=DiscountApplicableTo.FULL_PAYMENT,
+            is_active=True,
+            valid_from=timezone.now(),
+            valid_to=timezone.now() + timedelta(days=30)
+        )
+        
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.admin_user)
+
+
+# Remove all @pytest.fixture decorators and convert to setUp
+# Convert all @pytest.mark.django_db class TestX: to class TestX(PaymentsTestCase):
     """Create an organization."""
     return Organization.objects.create(
         name='Test Academy',
