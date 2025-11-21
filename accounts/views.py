@@ -216,6 +216,47 @@ class StudentPortalViewSet(viewsets.ViewSet):
         return Response(serializer.data)
     
     @action(detail=False, methods=['get'])
+    def payments(self, request):
+        """Get student's invoices and payments."""
+        from payments.models import Invoice, Payment
+        from payments.serializers import InvoiceSerializer, PaymentSerializer
+        
+        invoices = Invoice.objects.filter(enrollment__student=request.user).select_related(
+            'enrollment', 'enrollment__cohort', 'pricing', 'payment_plan'
+        )
+        payments = Payment.objects.filter(student=request.user).select_related(
+            'invoice', 'recorded_by'
+        )
+        
+        invoice_serializer = InvoiceSerializer(invoices, many=True, context={'request': request})
+        payment_serializer = PaymentSerializer(payments, many=True, context={'request': request})
+        
+        return Response({
+            'invoices': invoice_serializer.data,
+            'payments': payment_serializer.data,
+        })
+    
+    @action(detail=False, methods=['get'])
+    def outstanding_balance(self, request):
+        """Get total outstanding balance for student."""
+        from payments.models import Invoice
+        from payments.services.invoice_service import InvoiceService
+        
+        invoices = Invoice.objects.filter(
+            enrollment__student=request.user
+        ).exclude(status__in=['PAID', 'CANCELLED'])
+        
+        total_outstanding = sum(
+            InvoiceService.calculate_outstanding_amount(invoice) 
+            for invoice in invoices
+        )
+        
+        return Response({
+            'total_outstanding': total_outstanding,
+            'invoice_count': invoices.count(),
+        })
+    
+    @action(detail=False, methods=['get'])
     def grades(self, request):
         """Get student's grades."""
         from assessment.models import Grade

@@ -52,6 +52,7 @@ INSTALLED_APPS = [
     'ops',
     'timekeeping',
     'gallery',
+    'payments',
 ]
 
 MIDDLEWARE = [
