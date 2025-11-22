@@ -186,10 +186,14 @@ class TestInvoiceAPI(PaymentsTestCase):
     
     def test_create_invoice_for_enrollment(self):
         """Test creating invoice via API."""
-        response = self.client.post('/api/v1/payments/invoices/create_for_enrollment/', {
-            'enrollment': str(self.enrollment.id),
-            'payment_plan': str(self.payment_plan_full.id)
-        })
+        response = self.client.post(
+            '/api/v1/payments/invoices/create_for_enrollment/',
+            {
+                'enrollment': str(self.enrollment.id),
+                'payment_plan': str(self.payment_plan_full.id)
+            },
+            format='json'  # This sets Content-Type: application/json
+        )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertIn('invoice_number', response.data)
     
