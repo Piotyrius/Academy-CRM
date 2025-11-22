@@ -4,6 +4,8 @@ Views for admissions app.
 from rest_framework import viewsets, status, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiExample
+from drf_spectacular.types import OpenApiTypes
 from django.db import transaction, models
 from django.utils import timezone
 from django.core.mail import send_mail
@@ -337,6 +339,137 @@ class EnrollmentViewSet(
             'enrollments': serializer.data
         })
     
+    @extend_schema(
+        summary="Bulk activate enrollments",
+        description="Activate multiple pending enrollments at once (admin only). Only enrollments with status PENDING will be activated. Enrollments for full cohorts will be skipped with an error message.",
+        request={
+            'application/json': {
+                'type': 'object',
+                'required': ['enrollment_ids'],
+                'properties': {
+                    'enrollment_ids': {
+                        'type': 'array',
+                        'items': {
+                            'type': 'string',
+                            'format': 'uuid',
+                            'example': 'f47ac10b-58cc-4372-a567-0e02b2c3d479'
+                        },
+                        'description': 'Array of enrollment UUIDs to activate',
+                        'minItems': 1
+                    }
+                },
+                'examples': {
+                    'single_enrollment': {
+                        'summary': 'Activate single enrollment',
+                        'value': {
+                            'enrollment_ids': ['f47ac10b-58cc-4372-a567-0e02b2c3d479']
+                        }
+                    },
+                    'multiple_enrollments': {
+                        'summary': 'Activate multiple enrollments',
+                        'value': {
+                            'enrollment_ids': [
+                                'f47ac10b-58cc-4372-a567-0e02b2c3d479',
+                                'a1b2c3d4-e5f6-7890-abcd-ef1234567890'
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        responses={
+            200: {
+                'description': 'Enrollments activated successfully',
+                'content': {
+                    'application/json': {
+                        'schema': {
+                            'type': 'object',
+                            'properties': {
+                                'activated': {
+                                    'type': 'integer',
+                                    'description': 'Number of enrollments successfully activated'
+                                },
+                                'enrollments': {
+                                    'type': 'array',
+                                    'items': {'$ref': '#/components/schemas/Enrollment'}
+                                },
+                                'errors': {
+                                    'type': 'array',
+                                    'items': {'type': 'string'},
+                                    'description': 'Error messages for enrollments that could not be activated'
+                                }
+                            }
+                        },
+                        'examples': {
+                            'success': {
+                                'summary': 'All enrollments activated',
+                                'value': {
+                                    'activated': 2,
+                                    'enrollments': [
+                                        {
+                                            'id': 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
+                                            'status': 'ACTIVE',
+                                            'student_name': 'John Doe',
+                                            'cohort_name': 'FSD Cohort 2025-01'
+                                        }
+                                    ],
+                                    'errors': []
+                                }
+                            },
+                            'partial_success': {
+                                'summary': 'Some enrollments activated, some failed',
+                                'value': {
+                                    'activated': 1,
+                                    'enrollments': [
+                                        {
+                                            'id': 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
+                                            'status': 'ACTIVE'
+                                        }
+                                    ],
+                                    'errors': [
+                                        'Enrollment a1b2c3d4-e5f6-7890-abcd-ef1234567890: Cohort is full'
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            400: {
+                'description': 'Bad request - enrollment_ids is required or empty',
+                'content': {
+                    'application/json': {
+                        'schema': {
+                            'type': 'object',
+                            'properties': {
+                                'error': {'type': 'string'}
+                            }
+                        },
+                        'example': {
+                            'error': 'enrollment_ids is required'
+                        }
+                    }
+                }
+            },
+            403: {
+                'description': 'Forbidden - only admins can bulk activate',
+                'content': {
+                    'application/json': {
+                        'schema': {
+                            'type': 'object',
+                            'properties': {
+                                'error': {'type': 'string'}
+                            }
+                        },
+                        'example': {
+                            'error': 'Only admins can bulk activate enrollments'
+                        }
+                    }
+                }
+            }
+        },
+        tags=['Enrollments']
+    )
     @action(detail=False, methods=['post'])
     def bulk_activate(self, request):
         """Bulk activate enrollments (admin only)."""
