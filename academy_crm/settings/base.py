@@ -333,6 +333,10 @@ SPECTACULAR_SETTINGS = {
     # Cache schema generation
     'SCHEMA_PATH_PREFIX_TRIM': True,
     'SCHEMA_COERCE_PATH_PK': True,
+    # Servers configuration for Swagger UI
+    'SERVERS': [
+        {'url': 'https://academy-crm.onrender.com', 'description': 'Production server'},
+    ],
     'SCHEMA_COERCE_METHOD_NAMES': {
         'retrieve': 'read',
         'list': 'list',

@@ -260,34 +260,130 @@ class EnrollmentViewSet(
         
         return queryset
     
+    @extend_schema(
+        summary="Activate enrollment",
+        description="Activate a pending enrollment. Checks cohort capacity with race condition protection.",
+        request=None,  # No request body needed
+        responses={
+            200: {
+                'description': 'Enrollment activated successfully',
+                'content': {
+                    'application/json': {
+                        'schema': {'$ref': '#/components/schemas/Enrollment'}
+                    }
+                }
+            },
+            400: {
+                'description': 'Bad request',
+                'content': {
+                    'application/json': {
+                        'schema': {
+                            'type': 'object',
+                            'properties': {
+                                'error': {'type': 'string'}
+                            }
+                        },
+                        'examples': {
+                            'not_pending': {
+                                'summary': 'Enrollment is not pending',
+                                'value': {'error': 'Enrollment is not pending'}
+                            },
+                            'cohort_full': {
+                                'summary': 'Cohort is full',
+                                'value': {'error': 'Cohort is full'}
+                            }
+                        }
+                    }
+                }
+            },
+            404: {
+                'description': 'Not found',
+                'content': {
+                    'application/json': {
+                        'schema': {
+                            'type': 'object',
+                            'properties': {
+                                'error': {'type': 'string'}
+                            }
+                        },
+                        'example': {
+                            'error': 'Cohort not found for this enrollment'
+                        }
+                    }
+                }
+            },
+            500: {
+                'description': 'Internal server error',
+                'content': {
+                    'application/json': {
+                        'schema': {
+                            'type': 'object',
+                            'properties': {
+                                'error': {'type': 'string'},
+                                'detail': {'type': 'string'}
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        tags=['Enrollments']
+    )
     @action(detail=True, methods=['post'])
     def activate(self, request, pk=None):
         """Activate enrollment (check capacity with race condition protection)."""
-        enrollment = self.get_object()
-        
-        if enrollment.status != EnrollmentStatus.PENDING:
-            return Response(
-                {'error': 'Enrollment is not pending'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        with transaction.atomic():
-            # Lock cohort for update to prevent race condition
-            cohort = Cohort.objects.select_for_update().get(id=enrollment.cohort.id)
+        try:
+            enrollment = self.get_object()
             
-            # Re-check capacity with locked cohort
-            active_count = cohort.enrollments.filter(status=EnrollmentStatus.ACTIVE).count()
-            if active_count >= cohort.capacity:
+            if enrollment.status != EnrollmentStatus.PENDING:
                 return Response(
-                    {'error': 'Cohort is full'},
+                    {'error': 'Enrollment is not pending'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
             
-            enrollment.status = EnrollmentStatus.ACTIVE
-            enrollment.save()
-        
-        serializer = self.get_serializer(enrollment)
-        return Response(serializer.data)
+            # Import Cohort model
+            from catalog.models import Cohort
+            
+            with transaction.atomic():
+                try:
+                    # Lock cohort for update to prevent race condition
+                    cohort = Cohort.objects.select_for_update().get(id=enrollment.cohort.id)
+                except Cohort.DoesNotExist:
+                    return Response(
+                        {'error': 'Cohort not found for this enrollment'},
+                        status=status.HTTP_404_NOT_FOUND
+                    )
+                except AttributeError:
+                    return Response(
+                        {'error': 'Enrollment has no associated cohort'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+                
+                # Re-check capacity with locked cohort
+                active_count = cohort.enrollments.filter(status=EnrollmentStatus.ACTIVE).count()
+                if active_count >= cohort.capacity:
+                    return Response(
+                        {'error': 'Cohort is full'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+                
+                enrollment.status = EnrollmentStatus.ACTIVE
+                enrollment.save()
+            
+            serializer = self.get_serializer(enrollment)
+            return Response(serializer.data)
+        except Exception as e:
+            # Catch any unexpected errors and return JSON response
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Error in activate enrollment {pk}: {str(e)}", exc_info=True)
+            return Response(
+                {
+                    'error': 'An unexpected error occurred while activating enrollment',
+                    'detail': str(e)
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
     
     @action(detail=True, methods=['post'])
     def withdraw(self, request, pk=None):
