@@ -332,9 +332,9 @@ SPECTACULAR_SETTINGS = {
     'PREPROCESSING_HOOKS': [],
     'POSTPROCESSING_HOOKS': [],
     # Cache schema generation
-    'SCHEMA_PATH_PREFIX_TRIM': True,
+    'SCHEMA_PATH_PREFIX_TRIM': False,  # Keep full paths with /api/v1/ prefix in schema
     'SCHEMA_COERCE_PATH_PK': True,
-    # Servers configuration for Swagger UI
+    # Servers configuration for Swagger UI (optional - paths already include full prefix)
     'SERVERS': [
         {'url': 'https://academy-crm.onrender.com', 'description': 'Production server'},
     ],
