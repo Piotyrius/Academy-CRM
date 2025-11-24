@@ -204,8 +204,9 @@ DEFAULT_FILE_STORAGE = 'django.core.files.storage.FileSystemStorage'
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# Django Guardian
+# Django Guardian and Axes
 AUTHENTICATION_BACKENDS = (
+    'axes.backends.AxesStandaloneBackend',  # Axes login lockout (must be first)
     'django.contrib.auth.backends.ModelBackend',
     'guardian.backends.ObjectPermissionBackend',
 )
