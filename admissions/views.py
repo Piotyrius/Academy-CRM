@@ -473,73 +473,120 @@ class EnrollmentViewSet(
     @action(detail=False, methods=['post'])
     def bulk_activate(self, request):
         """Bulk activate enrollments (admin only)."""
-        if not request.user.is_admin:
-            return Response(
-                {'error': 'Only admins can bulk activate enrollments'},
-                status=status.HTTP_403_FORBIDDEN
-            )
-        
-        enrollment_ids = request.data.get('enrollment_ids', [])
-        if not enrollment_ids:
-            return Response(
-                {'error': 'enrollment_ids is required'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        enrollments = self.queryset.filter(
-            id__in=enrollment_ids,
-            status=EnrollmentStatus.PENDING
-        ).select_related('cohort', 'student')
-        
-        activated = []
-        errors = []
-        enrollments_to_activate = []
-        
-        with transaction.atomic():
-            # Group enrollments by cohort to minimize cohort locks
-            from collections import defaultdict
-            enrollments_by_cohort = defaultdict(list)
-            for enrollment in enrollments:
-                enrollments_by_cohort[enrollment.cohort_id].append(enrollment)
+        try:
+            if not request.user.is_admin:
+                return Response(
+                    {'error': 'Only admins can bulk activate enrollments'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
             
-            # Process each cohort once
-            for cohort_id, cohort_enrollments in enrollments_by_cohort.items():
+            enrollment_ids = request.data.get('enrollment_ids', [])
+            if not enrollment_ids:
+                return Response(
+                    {'error': 'enrollment_ids is required'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Validate UUIDs
+            import uuid
+            invalid_uuids = []
+            valid_uuids = []
+            for enrollment_id in enrollment_ids:
                 try:
-                    # Lock cohort for update (once per cohort, not per enrollment)
-                    cohort = Cohort.objects.select_for_update().get(id=cohort_id)
-                    
-                    # Get current active count once per cohort
-                    active_count = cohort.enrollments.filter(status=EnrollmentStatus.ACTIVE).count()
-                    available_spots = cohort.capacity - active_count
-                    
-                    # Process enrollments for this cohort
-                    for enrollment in cohort_enrollments:
-                        if available_spots <= 0:
-                            errors.append(f"Enrollment {enrollment.id}: Cohort is full")
-                            continue
-                        
-                        enrollment.status = EnrollmentStatus.ACTIVE
-                        enrollments_to_activate.append(enrollment)
-                        available_spots -= 1
-                        
-                except Cohort.DoesNotExist:
-                    for enrollment in cohort_enrollments:
-                        errors.append(f"Enrollment {enrollment.id}: Cohort not found")
-                except Exception as e:
-                    for enrollment in cohort_enrollments:
-                        errors.append(f"Enrollment {enrollment.id}: {str(e)}")
+                    # Try to parse as UUID
+                    uuid.UUID(str(enrollment_id))
+                    valid_uuids.append(enrollment_id)
+                except (ValueError, TypeError):
+                    invalid_uuids.append(str(enrollment_id))
             
-            # Bulk update all enrollments at once
-            if enrollments_to_activate:
-                Enrollment.objects.bulk_update(enrollments_to_activate, fields=['status'])
+            if invalid_uuids:
+                return Response(
+                    {
+                        'error': 'Invalid enrollment IDs provided',
+                        'invalid_ids': invalid_uuids
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Import Cohort model
+            from catalog.models import Cohort
+            
+            # Query enrollments with error handling
+            try:
+                enrollments = self.queryset.filter(
+                    id__in=valid_uuids,
+                    status=EnrollmentStatus.PENDING
+                ).select_related('cohort', 'student')
+            except Exception as e:
+                return Response(
+                    {
+                        'error': 'Database error while querying enrollments',
+                        'detail': str(e)
+                    },
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+            
+            activated = []
+            errors = []
+            enrollments_to_activate = []
+            
+            with transaction.atomic():
+                # Group enrollments by cohort to minimize cohort locks
+                from collections import defaultdict
+                enrollments_by_cohort = defaultdict(list)
+                for enrollment in enrollments:
+                    enrollments_by_cohort[enrollment.cohort_id].append(enrollment)
                 
-                # Serialize activated enrollments
-                for enrollment in enrollments_to_activate:
-                    serializer = self.get_serializer(enrollment)
-                    activated.append(serializer.data)
-        
-        return Response({
-            'activated': len(activated),
-            'enrollments': activated,
-            'errors': errors
-        })
+                # Process each cohort once
+                for cohort_id, cohort_enrollments in enrollments_by_cohort.items():
+                    try:
+                        # Lock cohort for update (once per cohort, not per enrollment)
+                        cohort = Cohort.objects.select_for_update().get(id=cohort_id)
+                        
+                        # Get current active count once per cohort
+                        active_count = cohort.enrollments.filter(status=EnrollmentStatus.ACTIVE).count()
+                        available_spots = cohort.capacity - active_count
+                        
+                        # Process enrollments for this cohort
+                        for enrollment in cohort_enrollments:
+                            if available_spots <= 0:
+                                errors.append(f"Enrollment {enrollment.id}: Cohort is full")
+                                continue
+                            
+                            enrollment.status = EnrollmentStatus.ACTIVE
+                            enrollments_to_activate.append(enrollment)
+                            available_spots -= 1
+                            
+                    except Cohort.DoesNotExist:
+                        for enrollment in cohort_enrollments:
+                            errors.append(f"Enrollment {enrollment.id}: Cohort not found")
+                    except Exception as e:
+                        for enrollment in cohort_enrollments:
+                            errors.append(f"Enrollment {enrollment.id}: {str(e)}")
+                
+                # Bulk update all enrollments at once
+                if enrollments_to_activate:
+                    Enrollment.objects.bulk_update(enrollments_to_activate, fields=['status'])
+                    
+                    # Serialize activated enrollments
+                    for enrollment in enrollments_to_activate:
+                        serializer = self.get_serializer(enrollment)
+                        activated.append(serializer.data)
+            
+            return Response({
+                'activated': len(activated),
+                'enrollments': activated,
+                'errors': errors
+            })
+        except Exception as e:
+            # Catch any unexpected errors and return JSON response
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Error in bulk_activate: {str(e)}", exc_info=True)
+            return Response(
+                {
+                    'error': 'An unexpected error occurred while processing bulk activation',
+                    'detail': str(e)
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
