@@ -78,6 +78,7 @@ celerybeat.pid
 
 # Temporary setup/test scripts
 test_*.py
+!scripts/test_all_swagger_endpoints.py  # Production test script - should be deployed
 update_*.py
 setup_*.ps1
 setup_*.py
