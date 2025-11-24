@@ -210,7 +210,7 @@ try:
     request.META['SERVER_PORT'] = '443'
     
     view = SpectacularSwaggerView.as_view(
-        url_name='schema-slash',
+        url_name='schema',  # Correct URL name from academy_crm/urls.py
         authentication_classes=[],
         permission_classes=[]
     )
