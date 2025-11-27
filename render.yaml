@@ -17,7 +17,7 @@ services:
       # Render will automatically provide DATABASE_URL pointing to the production database
       - key: DATABASE_URL
         fromDatabase:
-          name: academy-db  # Update this to match your actual Render PostgreSQL service name
+          name: academy_crm
           property: connectionString
       
       # If DATABASE_URL is not available, fallback to individual variables
@@ -26,19 +26,19 @@ services:
         value: academy_crm
       - key: DB_USER
         fromDatabase:
-          name: academy-db
+          name: academy_crm
           property: user
       - key: DB_PASSWORD
         fromDatabase:
-          name: academy-db
+          name: academy_crm
           property: password
       - key: DB_HOST
         fromDatabase:
-          name: academy-db
+          name: academy_crm
           property: host
       - key: DB_PORT
         fromDatabase:
-          name: academy-db
+          name: academy_crm
           property: port
       
       # Application Configuration
@@ -86,19 +86,19 @@ services:
         value: academy_crm_staging
       - key: DB_USER
         fromDatabase:
-          name: academy-db  # Same database instance as production
+          name: academy_crm  # Same database instance as production
           property: user
       - key: DB_PASSWORD
         fromDatabase:
-          name: academy-db
+          name: academy_crm
           property: password
       - key: DB_HOST
         fromDatabase:
-          name: academy-db
+          name: academy_crm
           property: host
       - key: DB_PORT
         fromDatabase:
-          name: academy-db
+          name: academy_crm
           property: port
       
       # Alternative: Construct DATABASE_URL manually if you prefer
