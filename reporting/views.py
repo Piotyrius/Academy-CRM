@@ -1,18 +1,28 @@
 """
 Views for reporting app.
 """
-from rest_framework import views, permissions
+from rest_framework import views
 from rest_framework.response import Response
 from django.http import HttpResponse
+from django.db.models import Sum
 import csv
 from io import StringIO
-from accounts.models import User
+
+from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiTypes
+
 from accounts.permissions import IsAdminUser
-from catalog.models import Program, Cohort
 from admissions.models import Application, Enrollment
 from attendance.models import AttendanceRecord
 from assessment.models import Grade
 from certificates.models import Certificate
+
+from .query import (
+    get_student_financial_queryset,
+    get_timeseries_analytics,
+    get_financial_analytics,
+    get_cohort_performance,
+)
+from .filters import AnalyticsFilterSerializer
 
 
 class CSVExportView(views.APIView):
@@ -168,3 +178,205 @@ class CertificateExportView(CSVExportView):
         
         headers = ['Serial', 'Student Email', 'Student Name', 'Cohort', 'Status', 'Issued At']
         return self.get_csv_response('certificates.csv', rows, headers)
+
+
+class AnalyticsOverviewView(views.APIView):
+    """
+    Return high-level mixed student + financial metrics as JSON.
+
+    This is intended for dashboards and charts on the reporting page.
+    """
+
+    permission_classes = [IsAdminUser]
+
+    @extend_schema(
+        summary="Analytics overview (student + financial)",
+        description=(
+            "Return aggregated metrics for enrollments and payments, filtered by "
+            "date range, program, cohort, student, or lecturer."
+        ),
+        parameters=[
+            OpenApiParameter("date_from", OpenApiTypes.DATETIME, OpenApiParameter.QUERY),
+            OpenApiParameter("date_to", OpenApiTypes.DATETIME, OpenApiParameter.QUERY),
+            OpenApiParameter("program_id", OpenApiTypes.UUID, OpenApiParameter.QUERY),
+            OpenApiParameter("cohort_id", OpenApiTypes.UUID, OpenApiParameter.QUERY),
+            OpenApiParameter("student_id", OpenApiTypes.UUID, OpenApiParameter.QUERY),
+            OpenApiParameter("lecturer_id", OpenApiTypes.UUID, OpenApiParameter.QUERY),
+        ],
+        tags=["Reporting"],
+    )
+    def get(self, request):
+        serializer = AnalyticsFilterSerializer(data=request.query_params)
+        serializer.is_valid(raise_exception=True)
+        params = serializer.validated_data
+        qs = get_student_financial_queryset(params)
+
+        total_enrollments = qs.count()
+        total_paid = qs.aggregate(total_paid_sum=csv.Sum("total_paid"))["total_paid_sum"] or 0
+
+        # Simple breakdown by program for charts (frontend can aggregate further)
+        by_program = {}
+        for enrollment in qs:
+            program = getattr(getattr(enrollment.cohort, "course", None), "program", None)
+            program_name = getattr(program, "name", "Unknown")
+            entry = by_program.setdefault(program_name, {"enrollments": 0, "total_paid": 0})
+            entry["enrollments"] += 1
+            entry["total_paid"] += float(enrollment.total_paid or 0)
+
+        return Response(
+            {
+                "total_enrollments": total_enrollments,
+                "total_paid": float(total_paid),
+                "by_program": by_program,
+            }
+        )
+
+
+class StudentFinancialReportView(views.APIView):
+    """
+    Return per-student rows combining enrollment and financial info.
+
+    This is suitable for tabular views and for the frontend to build more
+    advanced aggregations and charts.
+    """
+
+    permission_classes = [IsAdminUser]
+
+    @extend_schema(
+        summary="Student financial report",
+        description=(
+            "Return per-enrollment/student records with basic academic and "
+            "financial information. Supports the same filters as the analytics "
+            "overview endpoint."
+        ),
+        parameters=[
+            OpenApiParameter("date_from", OpenApiTypes.DATETIME, OpenApiParameter.QUERY),
+            OpenApiParameter("date_to", OpenApiTypes.DATETIME, OpenApiParameter.QUERY),
+            OpenApiParameter("program_id", OpenApiTypes.UUID, OpenApiParameter.QUERY),
+            OpenApiParameter("cohort_id", OpenApiTypes.UUID, OpenApiParameter.QUERY),
+            OpenApiParameter("student_id", OpenApiTypes.UUID, OpenApiParameter.QUERY),
+            OpenApiParameter("lecturer_id", OpenApiTypes.UUID, OpenApiParameter.QUERY),
+        ],
+        tags=["Reporting"],
+    )
+    def get(self, request):
+        serializer = AnalyticsFilterSerializer(data=request.query_params)
+        serializer.is_valid(raise_exception=True)
+        params = serializer.validated_data
+        qs = get_student_financial_queryset(params)
+
+        rows = []
+        for enrollment in qs:
+            student = enrollment.student
+            cohort = enrollment.cohort
+            course = getattr(cohort, "course", None)
+            program = getattr(course, "program", None)
+            rows.append(
+                {
+                    "enrollment_id": str(enrollment.id),
+                    "student_id": str(student.id),
+                    "student_email": student.email,
+                    "student_name": student.get_full_name(),
+                    "program_name": getattr(program, "name", None),
+                    "cohort_name": getattr(cohort, "name", None),
+                    "status": enrollment.status,
+                    "enrolled_at": enrollment.enrolled_at,
+                    "total_paid": float(enrollment.total_paid or 0),
+                }
+            )
+
+        return Response({"results": rows})
+
+
+class TimeSeriesAnalyticsView(views.APIView):
+    """
+    Time-series analytics for enrollments and payments.
+
+    Supports grouping by day, week, or month for use in charts.
+    """
+
+    permission_classes = [IsAdminUser]
+
+    @extend_schema(
+        summary="Time-series analytics",
+        description=(
+            "Return time-series data for enrollments and completed payments. "
+            "Use the 'group_by' query parameter to group by day, week, or month."
+        ),
+        parameters=[
+            OpenApiParameter("date_from", OpenApiTypes.DATETIME, OpenApiParameter.QUERY),
+            OpenApiParameter("date_to", OpenApiTypes.DATETIME, OpenApiParameter.QUERY),
+            OpenApiParameter(
+                "group_by",
+                OpenApiTypes.STR,
+                OpenApiParameter.QUERY,
+                enum=["day", "week", "month"],
+            ),
+        ],
+        tags=["Reporting"],
+    )
+    def get(self, request):
+        serializer = AnalyticsFilterSerializer(data=request.query_params)
+        serializer.is_valid(raise_exception=True)
+        params = serializer.validated_data
+
+        group_by = params.get("group_by") or "day"
+        if group_by not in {"day", "week", "month"}:
+            group_by = "day"
+
+        series = get_timeseries_analytics(params, group_by=group_by)  # type: ignore[arg-type]
+        return Response({"group_by": group_by, "series": series})
+
+
+class FinancialAnalyticsView(views.APIView):
+    """
+    Financial analytics: invoices and payments, with breakdowns.
+    """
+
+    permission_classes = [IsAdminUser]
+
+    @extend_schema(
+        summary="Financial analytics",
+        description=(
+            "Return high-level financial metrics based on invoices and payments, "
+            "including totals and breakdowns by program, cohort, and invoice status."
+        ),
+        parameters=[
+            OpenApiParameter("date_from", OpenApiTypes.DATETIME, OpenApiParameter.QUERY),
+            OpenApiParameter("date_to", OpenApiTypes.DATETIME, OpenApiParameter.QUERY),
+        ],
+        tags=["Reporting"],
+    )
+    def get(self, request):
+        serializer = AnalyticsFilterSerializer(data=request.query_params)
+        serializer.is_valid(raise_exception=True)
+        params = serializer.validated_data
+        data = get_financial_analytics(params)
+        return Response(data)
+
+
+class CohortAnalyticsView(views.APIView):
+    """
+    Cohort performance analytics: students, attendance, grades, finances.
+    """
+
+    permission_classes = [IsAdminUser]
+
+    @extend_schema(
+        summary="Cohort performance analytics",
+        description=(
+            "Return per-cohort performance metrics including student count, "
+            "attendance rate, average grade, and financial totals."
+        ),
+        parameters=[
+            OpenApiParameter("date_from", OpenApiTypes.DATETIME, OpenApiParameter.QUERY),
+            OpenApiParameter("date_to", OpenApiTypes.DATETIME, OpenApiParameter.QUERY),
+        ],
+        tags=["Reporting"],
+    )
+    def get(self, request):
+        serializer = AnalyticsFilterSerializer(data=request.query_params)
+        serializer.is_valid(raise_exception=True)
+        params = serializer.validated_data
+        rows = get_cohort_performance(params)
+        return Response({"results": rows})
