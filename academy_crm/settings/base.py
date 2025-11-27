@@ -253,6 +253,40 @@ AUTHENTICATION_BACKENDS = (
     'guardian.backends.ObjectPermissionBackend',
 )
 
+# Disable guardian's post_migrate signal during migrations to prevent fernet_fields errors
+# Set DISABLE_GUARDIAN_SIGNAL=1 in environment to skip guardian signal during migrations
+# This prevents guardian from querying User model before mfa_secret field is converted
+if os.getenv('DISABLE_GUARDIAN_SIGNAL', '0') == '1':
+    # Disconnect guardian's signal to prevent User model queries during migrations
+    try:
+        from django.db.models.signals import post_migrate
+        from guardian import management
+        
+        # Disconnect the signal if it's connected
+        try:
+            post_migrate.disconnect(
+                management.create_anonymous_user,
+                dispatch_uid='guardian.management.create_anonymous_user'
+            )
+            logger.info("Guardian post_migrate signal disconnected (DISABLE_GUARDIAN_SIGNAL=1)")
+        except (ValueError, TypeError):
+            # Signal not connected yet, that's fine - it will be disconnected when it connects
+            # Register a receiver to disconnect it when it connects
+            def disconnect_guardian_signal(sender, **kwargs):
+                try:
+                    post_migrate.disconnect(
+                        management.create_anonymous_user,
+                        dispatch_uid='guardian.management.create_anonymous_user'
+                    )
+                except (ValueError, TypeError):
+                    pass
+            
+            # Connect to post_migrate to disconnect guardian's signal when it fires
+            post_migrate.connect(disconnect_guardian_signal, weak=False)
+    except ImportError:
+        # Guardian not available, nothing to do
+        pass
+
 # REST Framework
 REST_FRAMEWORK = {
     # Only JWT for API - Session auth is only for Django admin
