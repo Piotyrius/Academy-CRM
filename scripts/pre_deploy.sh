@@ -3,13 +3,7 @@ set -e
 
 echo "Running pre-deploy commands..."
 
-# Fix fernet_fields data issues before migrations
-echo "Checking for fernet_fields data issues..."
-python scripts/fix_fernet_fields.py || {
-    echo "WARNING: Data fix script had issues, but continuing..."
-}
-
-# First, create any missing migrations
+# Create any missing migrations
 echo "Creating missing migrations..."
 python manage.py makemigrations --noinput || {
     echo "WARNING: makemigrations had issues, but continuing..."
@@ -18,7 +12,6 @@ python manage.py makemigrations --noinput || {
 # Run migrations in stages to avoid Guardian signal issues
 # Guardian's post_migrate signal queries User model, but organization_id column
 # doesn't exist until accounts.0002 migration runs
-# Also, fernet_fields may have encoding issues with existing data
 echo "Running database migrations in safe order..."
 
 # Step 1: Run subscriptions migrations first (creates Organization table)
@@ -28,7 +21,7 @@ python manage.py migrate subscriptions --noinput || {
     exit 1
 }
 
-# Step 2: Run accounts migrations (adds organization to User before Guardian queries it)
+# Step 2: Run accounts migrations (adds organization to User and converts mfa_secret)
 echo "Step 2: Running accounts migrations..."
 python manage.py migrate accounts --noinput || {
     echo "ERROR: Accounts migrations failed"
