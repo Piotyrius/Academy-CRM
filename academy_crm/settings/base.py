@@ -117,7 +117,34 @@ if DATABASE_URL:
         db_host = parsed.hostname if parsed.hostname else 'localhost'
         db_port = parsed.port if parsed.port else '5432'
         
-        logger.info(f"Using DATABASE_URL (database: {db_name}, host: {db_host})")
+        # Allow DB_NAME to override database name from DATABASE_URL
+        # This is useful when Render's DATABASE_URL points to "Default" but you want "academy_crm"
+        explicit_db_name = os.getenv('DB_NAME')
+        if explicit_db_name:
+            original_db_name = db_name
+            db_name = explicit_db_name
+            logger.info(f"Using DATABASE_URL but overriding database name: '{original_db_name}' -> '{db_name}' (from DB_NAME)")
+        else:
+            logger.info(f"Using DATABASE_URL (database: {db_name}, host: {db_host})")
+        
+        # Also allow other DB_* variables to override if explicitly set
+        # This allows fine-tuning connection even when DATABASE_URL is provided by Render
+        if os.getenv('DB_USER'):
+            db_user = os.getenv('DB_USER')
+        if os.getenv('DB_PASSWORD'):
+            db_password = os.getenv('DB_PASSWORD')
+        if os.getenv('DB_HOST'):
+            # If DB_HOST is set, use it (extract hostname if it's a URL)
+            explicit_db_host = os.getenv('DB_HOST')
+            if explicit_db_host.startswith(('postgresql://', 'postgres://')):
+                # Parse URL to get just hostname
+                from urllib.parse import urlparse
+                parsed_host = urlparse(explicit_db_host)
+                db_host = parsed_host.hostname or parsed_host.netloc.split('@')[-1].split(':')[0]
+            else:
+                db_host = explicit_db_host
+        if os.getenv('DB_PORT'):
+            db_port = os.getenv('DB_PORT')
         
         DATABASES = {
             'default': {
