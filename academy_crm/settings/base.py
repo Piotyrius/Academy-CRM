@@ -95,76 +95,116 @@ WSGI_APPLICATION = 'academy_crm.wsgi.application'
 
 # Database
 # PostgreSQL is required - UUID primary keys require PostgreSQL
+# Supports both DATABASE_URL (Render standard) and individual DB_* variables
 
-# Helper function to extract hostname from DB_HOST if it's a full URL
-def get_db_host():
-    """Extract hostname from DB_HOST, handling both URL and hostname formats."""
-    db_host = os.getenv('DB_HOST', 'localhost')
-    
-    # Safety check: if DB_HOST looks like a password (starts with alphanumeric and has @), it's wrong
-    if db_host and '@' in db_host and not db_host.startswith(('postgresql://', 'postgres://', 'http://', 'https://')):
-        # This looks like password@host format - extract hostname
-        if '@' in db_host:
-            host_part = db_host.split('@')[-1]
-            # Remove database name if present (host/db)
-            hostname = host_part.split('/')[0]
-            # Remove port if present
-            hostname = hostname.split(':')[0]
-            return hostname
-    
-    # If it's a full PostgreSQL URL, extract just the hostname
-    if db_host.startswith('postgresql://') or db_host.startswith('postgres://'):
-        # Parse the URL: postgresql://user:pass@host:port/db
-        try:
-            from urllib.parse import urlparse
-            parsed = urlparse(db_host)
-            # Extract hostname (remove port if present)
-            hostname = parsed.hostname or parsed.netloc.split('@')[-1].split(':')[0]
-            return hostname
-        except Exception:
-            # If parsing fails, try to extract manually
-            if '@' in db_host:
-                # Extract hostname from postgresql://user:pass@host/db
-                host_part = db_host.split('@')[-1].split('/')[0]
-                # Remove port if present
-                hostname = host_part.split(':')[0]
-                return hostname
-    
-    # If it's already just a hostname, return as-is
-    return db_host
-
-# Get database host (handles both URL and hostname formats)
-db_host_raw = os.getenv('DB_HOST', 'localhost')
-db_host = get_db_host()
-
-# Log database configuration (without password) for debugging
 import logging
 logger = logging.getLogger(__name__)
-logger.warning(f"DB_HOST (raw): {db_host_raw[:50]}..." if len(db_host_raw) > 50 else f"DB_HOST (raw): {db_host_raw}")
-logger.info(f"Database HOST (parsed): {db_host}")
-logger.info(f"Database NAME: {os.getenv('DB_NAME', 'academy_crm')}")
-logger.info(f"Database USER: {os.getenv('DB_USER', 'postgres')}")
-logger.info(f"Database PORT: {os.getenv('DB_PORT', '5432')}")
 
-# Warn if DB_HOST looks wrong
-if '@' in db_host_raw and not db_host_raw.startswith(('postgresql://', 'postgres://')):
-    logger.error(f"⚠️ DB_HOST appears to have password mixed in! Raw value: {db_host_raw[:50]}...")
-    logger.error(f"✅ Parsed hostname: {db_host}")
-    logger.error("⚠️ Please fix DB_HOST in Render environment variables to be just the hostname!")
+# Primary method: Use DATABASE_URL if provided (Render standard)
+DATABASE_URL = os.getenv('DATABASE_URL')
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.getenv('DB_NAME', 'academy_crm'),
-        'USER': os.getenv('DB_USER', 'postgres'),
-        'PASSWORD': os.getenv('DB_PASSWORD', 'postgres'),
-        'HOST': db_host,
-        'PORT': os.getenv('DB_PORT', '5432'),
-        'OPTIONS': {
-            'connect_timeout': 10,
-        },
+if DATABASE_URL:
+    # Parse DATABASE_URL: postgresql://user:password@host:port/database
+    try:
+        from urllib.parse import urlparse, unquote
+        parsed = urlparse(DATABASE_URL)
+        
+        # Extract components
+        db_name = parsed.path.lstrip('/') if parsed.path else 'academy_crm'
+        db_user = unquote(parsed.username) if parsed.username else 'postgres'
+        db_password = unquote(parsed.password) if parsed.password else ''
+        db_host = parsed.hostname if parsed.hostname else 'localhost'
+        db_port = parsed.port if parsed.port else '5432'
+        
+        logger.info(f"Using DATABASE_URL (database: {db_name}, host: {db_host})")
+        
+        DATABASES = {
+            'default': {
+                'ENGINE': 'django.db.backends.postgresql',
+                'NAME': db_name,
+                'USER': db_user,
+                'PASSWORD': db_password,
+                'HOST': db_host,
+                'PORT': db_port,
+                'OPTIONS': {
+                    'connect_timeout': 10,
+                },
+            }
+        }
+    except Exception as e:
+        logger.error(f"Failed to parse DATABASE_URL: {e}")
+        # Fall through to individual variables
+        DATABASE_URL = None
+
+# Fallback: Use individual DB_* environment variables
+if not DATABASE_URL:
+    # Helper function to extract hostname from DB_HOST if it's a full URL
+    def get_db_host():
+        """Extract hostname from DB_HOST, handling both URL and hostname formats."""
+        db_host = os.getenv('DB_HOST', 'localhost')
+        
+        # Safety check: if DB_HOST looks like a password (starts with alphanumeric and has @), it's wrong
+        if db_host and '@' in db_host and not db_host.startswith(('postgresql://', 'postgres://', 'http://', 'https://')):
+            # This looks like password@host format - extract hostname
+            if '@' in db_host:
+                host_part = db_host.split('@')[-1]
+                # Remove database name if present (host/db)
+                hostname = host_part.split('/')[0]
+                # Remove port if present
+                hostname = hostname.split(':')[0]
+                return hostname
+        
+        # If it's a full PostgreSQL URL, extract just the hostname
+        if db_host.startswith('postgresql://') or db_host.startswith('postgres://'):
+            # Parse the URL: postgresql://user:pass@host:port/db
+            try:
+                from urllib.parse import urlparse
+                parsed = urlparse(db_host)
+                # Extract hostname (remove port if present)
+                hostname = parsed.hostname or parsed.netloc.split('@')[-1].split(':')[0]
+                return hostname
+            except Exception:
+                # If parsing fails, try to extract manually
+                if '@' in db_host:
+                    # Extract hostname from postgresql://user:pass@host/db
+                    host_part = db_host.split('@')[-1].split('/')[0]
+                    # Remove port if present
+                    hostname = host_part.split(':')[0]
+                    return hostname
+        
+        # If it's already just a hostname, return as-is
+        return db_host
+
+    # Get database host (handles both URL and hostname formats)
+    db_host_raw = os.getenv('DB_HOST', 'localhost')
+    db_host = get_db_host()
+
+    # Log database configuration (without password) for debugging
+    logger.warning(f"DB_HOST (raw): {db_host_raw[:50]}..." if len(db_host_raw) > 50 else f"DB_HOST (raw): {db_host_raw}")
+    logger.info(f"Database HOST (parsed): {db_host}")
+    logger.info(f"Database NAME: {os.getenv('DB_NAME', 'academy_crm')}")
+    logger.info(f"Database USER: {os.getenv('DB_USER', 'postgres')}")
+    logger.info(f"Database PORT: {os.getenv('DB_PORT', '5432')}")
+
+    # Warn if DB_HOST looks wrong
+    if '@' in db_host_raw and not db_host_raw.startswith(('postgresql://', 'postgres://')):
+        logger.error(f"⚠️ DB_HOST appears to have password mixed in! Raw value: {db_host_raw[:50]}...")
+        logger.error(f"✅ Parsed hostname: {db_host}")
+        logger.error("⚠️ Please fix DB_HOST in Render environment variables to be just the hostname!")
+
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': os.getenv('DB_NAME', 'academy_crm'),
+            'USER': os.getenv('DB_USER', 'postgres'),
+            'PASSWORD': os.getenv('DB_PASSWORD', 'postgres'),
+            'HOST': db_host,
+            'PORT': os.getenv('DB_PORT', '5432'),
+            'OPTIONS': {
+                'connect_timeout': 10,
+            },
+        }
     }
-}
 
 # Custom User Model
 AUTH_USER_MODEL = 'accounts.User'
