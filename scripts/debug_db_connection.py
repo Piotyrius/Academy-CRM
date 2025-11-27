@@ -146,6 +146,101 @@ except Exception as e:
         print("  ⚠️  Organizations table doesn't exist - migrations need to run")
     traceback.print_exc()
 
+# 7. Check users table and mfa_secret field
+print("\n7. CHECKING USERS TABLE AND MFA_SECRET FIELD:")
+print("-" * 80)
+try:
+    with connection.cursor() as cursor:
+        # Check if users table exists
+        cursor.execute("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables 
+                WHERE table_schema = 'public' 
+                AND table_name = 'users'
+            );
+        """)
+        users_exists = cursor.fetchone()[0]
+        
+        if users_exists:
+            # Check if mfa_secret column exists
+            cursor.execute("""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.columns 
+                    WHERE table_schema = 'public' 
+                    AND table_name = 'users' 
+                    AND column_name = 'mfa_secret'
+                );
+            """)
+            mfa_secret_exists = cursor.fetchone()[0]
+            
+            print(f"  ✅ Users table exists")
+            print(f"  ✅ mfa_secret column exists: {mfa_secret_exists}")
+            
+            if mfa_secret_exists:
+                # Check data type of mfa_secret
+                cursor.execute("""
+                    SELECT data_type 
+                    FROM information_schema.columns 
+                    WHERE table_schema = 'public' 
+                    AND table_name = 'users' 
+                    AND column_name = 'mfa_secret';
+                """)
+                data_type = cursor.fetchone()[0] if cursor.rowcount > 0 else None
+                print(f"  📊 mfa_secret data type: {data_type}")
+                
+                # Check if there are any users with mfa_secret set
+                cursor.execute("""
+                    SELECT COUNT(*) 
+                    FROM users 
+                    WHERE mfa_secret IS NOT NULL AND mfa_secret != '';
+                """)
+                users_with_mfa = cursor.fetchone()[0]
+                print(f"  👥 Users with mfa_secret set: {users_with_mfa}")
+                
+                if users_with_mfa > 0:
+                    # Try to read one mfa_secret value to test fernet_fields
+                    cursor.execute("""
+                        SELECT mfa_secret 
+                        FROM users 
+                        WHERE mfa_secret IS NOT NULL AND mfa_secret != ''
+                        LIMIT 1;
+                    """)
+                    result = cursor.fetchone()
+                    if result:
+                        mfa_value = result[0]
+                        print(f"  📝 Sample mfa_secret type: {type(mfa_value).__name__}")
+                        print(f"  📝 Sample mfa_secret length: {len(mfa_value) if mfa_value else 0}")
+        else:
+            print(f"  ⚠️  Users table doesn't exist yet")
+            
+except Exception as e:
+    print(f"  ❌ Failed to check users table: {e}")
+    traceback.print_exc()
+
+# 8. Test fernet_fields patch
+print("\n8. TESTING FERNET_FIELDS PATCH:")
+print("-" * 80)
+try:
+    import fernet_fields.fields
+    print(f"  ✅ fernet_fields imported successfully")
+    
+    # Check if patch is applied
+    if hasattr(fernet_fields.fields.FernetField, 'from_db_value'):
+        print(f"  ✅ FernetField.from_db_value exists")
+        # Check if it's our patched version (has specific attributes)
+        import inspect
+        source = inspect.getsource(fernet_fields.fields.FernetField.from_db_value)
+        if 'patched_from_db_value' in source or 'base64' in source:
+            print(f"  ✅ Patch appears to be applied (found patch indicators)")
+        else:
+            print(f"  ⚠️  Patch might not be applied (no patch indicators found)")
+    else:
+        print(f"  ❌ FernetField.from_db_value not found!")
+        
+except Exception as e:
+    print(f"  ❌ Failed to check fernet_fields patch: {e}")
+    traceback.print_exc()
+
 print("\n" + "=" * 80)
 print("DEBUG COMPLETE")
 print("=" * 80)

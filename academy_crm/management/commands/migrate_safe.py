@@ -8,6 +8,10 @@ from django.core.management import call_command
 from django.db.models.signals import post_migrate
 from django.apps import apps
 
+# Ensure fernet_fields patch is applied before migrations
+# This import triggers the patch in compat.py
+from academy_crm import compat  # noqa: F401
+
 
 class Command(BaseCommand):
     help = 'Run migrations safely, handling Guardian signal issues and fernet_fields encoding errors'

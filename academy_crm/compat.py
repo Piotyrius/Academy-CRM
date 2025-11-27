@@ -89,8 +89,16 @@ def _patch_fernet_fields():
         fernet_fields.fields.FernetField.from_db_value = patched_from_db_value
         logger.info("✅ Patched fernet_fields.fields.FernetField.from_db_value")
         
-        # Also patch EncryptedTextField if it's a separate class
+        # Also patch EncryptedTextField - check both locations
+        # EncryptedTextField might be in fernet_fields.fields or fernet_fields directly
+        if hasattr(fernet_fields, 'EncryptedTextField'):
+            # EncryptedTextField at module level
+            if fernet_fields.EncryptedTextField != fernet_fields.fields.FernetField:
+                fernet_fields.EncryptedTextField.from_db_value = patched_from_db_value
+                logger.info("✅ Patched fernet_fields.EncryptedTextField.from_db_value")
+        
         if hasattr(fernet_fields.fields, 'EncryptedTextField'):
+            # EncryptedTextField in fields submodule
             if fernet_fields.fields.EncryptedTextField != fernet_fields.fields.FernetField:
                 fernet_fields.fields.EncryptedTextField.from_db_value = patched_from_db_value
                 logger.info("✅ Patched fernet_fields.fields.EncryptedTextField.from_db_value")
@@ -106,6 +114,23 @@ def _patch_fernet_fields():
                 try:
                     attr.from_db_value = patched_from_db_value
                     patched_count += 1
+                except Exception:
+                    pass  # Skip if we can't patch it
+        
+        # Also check fernet_fields module level
+        for attr_name in dir(fernet_fields):
+            if attr_name.startswith('_'):
+                continue
+            attr = getattr(fernet_fields, attr_name, None)
+            if (attr and 
+                isinstance(attr, type) and 
+                hasattr(attr, 'from_db_value') and
+                attr != fernet_fields.fields.FernetField):
+                try:
+                    # Check if it's a field class
+                    if hasattr(attr, '__bases__') and any('Field' in str(base) for base in attr.__bases__):
+                        attr.from_db_value = patched_from_db_value
+                        patched_count += 1
                 except Exception:
                     pass  # Skip if we can't patch it
         
