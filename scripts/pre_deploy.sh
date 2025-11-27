@@ -27,23 +27,23 @@ python manage.py makemigrations --noinput || {
 echo "Running database migrations in safe order..."
 
 # Step 1: Run subscriptions migrations first (creates Organization table)
-# Use migrate_safe_guardian to disable guardian signal
+# Use Python script to disable guardian signal before migrations
 echo "Step 1: Running subscriptions migrations..."
-python manage.py migrate_safe_guardian subscriptions --noinput || {
+python scripts/migrate_without_guardian.py subscriptions --noinput || {
     echo "ERROR: Subscriptions migrations failed"
     exit 1
 }
 
 # Step 2: Run accounts migrations (adds organization to User and converts mfa_secret)
 echo "Step 2: Running accounts migrations..."
-python manage.py migrate_safe_guardian accounts --noinput || {
+python scripts/migrate_without_guardian.py accounts --noinput || {
     echo "ERROR: Accounts migrations failed"
     exit 1
 }
 
 # Step 3: Run all other migrations
 echo "Step 3: Running all other migrations..."
-python manage.py migrate_safe_guardian --noinput || {
+python scripts/migrate_without_guardian.py --noinput || {
     echo "ERROR: Migrations failed"
     exit 1
 }
