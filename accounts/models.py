@@ -6,7 +6,7 @@ from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 from django.core.exceptions import ValidationError
-from fernet_fields import EncryptedTextField
+from fernet_fields import EncryptedCharField
 
 
 class Role(models.TextChoices):
@@ -63,8 +63,7 @@ class User(AbstractUser):
     phone = models.CharField(max_length=20, blank=True)
     is_active = models.BooleanField(default=True)
     mfa_enabled = models.BooleanField(default=False, help_text=_('Multi-factor authentication enabled'))
-    # Store MFA secret encrypted at rest. Blank allowed so MFA can be disabled/cleared.
-    mfa_secret = EncryptedTextField(blank=True, null=True, help_text=_('MFA secret key (encrypted)'))
+    mfa_secret = EncryptedCharField(max_length=32, blank=True, help_text=_('MFA secret key'))
     
     # Organization/tenant relationship (nullable for backward compatibility during migration)
     organization = models.ForeignKey(

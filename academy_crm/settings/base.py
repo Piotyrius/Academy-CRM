@@ -42,7 +42,7 @@ INSTALLED_APPS = [
     
     # Local apps
     'subscriptions',  # Multi-tenant and subscription management (must be before other apps)
-    'accounts',
+    'accounts.apps.AccountsConfig',  # Use explicit AppConfig to enable ready() method
     'catalog',
     'admissions',
     'attendance',

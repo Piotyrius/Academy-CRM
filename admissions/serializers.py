@@ -70,6 +70,33 @@ class EnrollmentSerializer(serializers.ModelSerializer):
         model = Enrollment
         fields = '__all__'
         read_only_fields = ['id', 'enrolled_at', 'created_at', 'updated_at']
+
+    def validate(self, attrs):
+        """Check student limits before enrollment."""
+        request = self.context.get('request')
+        if request and request.user:
+            # Get organization from request or from the student being enrolled
+            organization = getattr(request, 'organization', None)
+            
+            # If not in request, try to get from the student user instance in attrs
+            if not organization and 'student' in attrs:
+                organization = attrs['student'].organization
+            
+            if organization and hasattr(organization, 'subscription') and organization.subscription.is_active:
+                plan = organization.subscription.plan
+                
+                # Check student/enrollment limit (if not unlimited)
+                if plan.max_students is not None:
+                    # Count active enrollments
+                    # Note: This counts total active enrollments, not unique students
+                    # Adjust logic if limit should be per unique student
+                    current_enrollments = organization.enrollments.filter(status=EnrollmentStatus.ACTIVE).count()
+                    
+                    if current_enrollments >= plan.max_students:
+                        raise serializers.ValidationError(
+                            f"Student enrollment limit reached. Your plan allows a maximum of {plan.max_students} active enrollments."
+                        )
+        return attrs
     
     def _get_target_organization(self, attrs):
         """
