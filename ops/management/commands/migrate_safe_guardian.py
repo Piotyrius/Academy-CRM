@@ -52,4 +52,3 @@ class Command(BaseCommand):
             call_command('migrate', *noinput_flag, verbosity=1)
         
         self.stdout.write(self.style.SUCCESS('Migrations completed successfully'))
-
