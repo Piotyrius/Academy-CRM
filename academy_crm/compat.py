@@ -31,6 +31,8 @@ def _patch_fernet_fields():
     """
     try:
         import fernet_fields.fields
+        import logging
+        logger = logging.getLogger(__name__)
         
         # Store the original method
         original_from_db_value = fernet_fields.fields.FernetField.from_db_value
@@ -42,65 +44,86 @@ def _patch_fernet_fields():
             The original fernet_fields code tries bytes(value) which fails in Python 3
             when value is a string. This patch intercepts that and handles it properly.
             
-            Encrypted data in the database is typically stored as base64-encoded strings.
-            We need to decode the base64 string to bytes before the original method can decrypt it.
+            We convert strings to bytes BEFORE calling the original method to prevent the error.
             """
             if value is None:
                 return None
             
-            # If value is already bytes, use original method
+            # If value is already bytes, use original method directly
             if isinstance(value, bytes):
                 return original_from_db_value(self, value, expression, connection)
             
-            # If value is a string, we need to handle it carefully
-            # The original method might try bytes(value) which fails in Python 3
+            # If value is a string, convert to bytes BEFORE calling original method
+            # This prevents the TypeError: string argument without an encoding
             if isinstance(value, str):
-                # Try the original method first (it might work in some cases)
+                # Encrypted data from database is typically stored as base64-encoded strings
+                # Try base64 decode first (most common case)
+                import base64
                 try:
-                    return original_from_db_value(self, value, expression, connection)
-                except TypeError as e:
-                    # Check if this is the encoding error we're trying to fix
-                    error_msg = str(e).lower()
-                    if 'encoding' in error_msg or 'string argument' in error_msg:
-                        # The original code is trying bytes(value) which fails
-                        # Encrypted data from database is typically stored as base64-encoded strings
-                        # We need to decode the base64 string to bytes first
-                        import base64
+                    # Try to decode as base64
+                    value_bytes = base64.b64decode(value, validate=True)
+                    return original_from_db_value(self, value_bytes, expression, connection)
+                except Exception:
+                    # If base64 decode fails, try encoding as latin-1 (preserves byte values 1:1)
+                    # This is safer for binary/encrypted data than UTF-8
+                    try:
+                        value_bytes = value.encode('latin-1')
+                        return original_from_db_value(self, value_bytes, expression, connection)
+                    except Exception:
+                        # Last resort: UTF-8 encoding
                         try:
-                            # Try to decode as base64 (most common case for encrypted data)
-                            value_bytes = base64.b64decode(value)
+                            value_bytes = value.encode('utf-8')
                             return original_from_db_value(self, value_bytes, expression, connection)
-                        except Exception:
-                            # If base64 decode fails, the value might be plain text or already in bytes format
-                            # Try encoding as UTF-8 (for plain text) or latin-1 (for binary data)
-                            try:
-                                value_bytes = value.encode('latin-1')
-                                return original_from_db_value(self, value_bytes, expression, connection)
-                            except Exception:
-                                # Last resort: UTF-8 encoding
-                                value_bytes = value.encode('utf-8')
-                                return original_from_db_value(self, value_bytes, expression, connection)
-                    # Re-raise if it's a different TypeError
-                    raise
+                        except Exception as e:
+                            # If all else fails, log and try original method (might fail, but at least we tried)
+                            import logging
+                            logger = logging.getLogger(__name__)
+                            logger.warning(f"Failed to convert string to bytes in fernet_fields patch: {e}")
+                            # Try original method - it will fail, but at least we tried our best
+                            return original_from_db_value(self, value, expression, connection)
             
             # For other types, use original method
             return original_from_db_value(self, value, expression, connection)
         
-        # Apply the patch to all FernetField subclasses
+        # Apply the patch to FernetField base class
         fernet_fields.fields.FernetField.from_db_value = patched_from_db_value
+        logger.info("✅ Patched fernet_fields.fields.FernetField.from_db_value")
         
         # Also patch EncryptedTextField if it's a separate class
         if hasattr(fernet_fields.fields, 'EncryptedTextField'):
             if fernet_fields.fields.EncryptedTextField != fernet_fields.fields.FernetField:
                 fernet_fields.fields.EncryptedTextField.from_db_value = patched_from_db_value
+                logger.info("✅ Patched fernet_fields.fields.EncryptedTextField.from_db_value")
+        
+        # Patch all field classes in the module that inherit from FernetField
+        patched_count = 0
+        for attr_name in dir(fernet_fields.fields):
+            attr = getattr(fernet_fields.fields, attr_name, None)
+            if (attr and 
+                isinstance(attr, type) and 
+                issubclass(attr, fernet_fields.fields.FernetField) and 
+                attr != fernet_fields.fields.FernetField):
+                try:
+                    attr.from_db_value = patched_from_db_value
+                    patched_count += 1
+                except Exception:
+                    pass  # Skip if we can't patch it
+        
+        if patched_count > 0:
+            logger.info(f"✅ Patched {patched_count} additional fernet_fields subclasses")
+        
+        logger.info("✅ fernet_fields encoding patch applied successfully")
         
     except ImportError:
         # fernet_fields not available, nothing to patch
-        pass
-    except Exception:
-        # If patching fails, continue anyway - better to have migrations fail
-        # with a clear error than to silently break
-        pass
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning("⚠️ fernet_fields not available - patch not applied")
+    except Exception as e:
+        # If patching fails, log it but continue
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"❌ Failed to patch fernet_fields: {e}", exc_info=True)
 
 
 # Apply the patch when this module is imported
