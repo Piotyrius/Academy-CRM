@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     # Local apps
     'subscriptions',  # Multi-tenant and subscription management (must be before other apps)
     'accounts.apps.AccountsConfig',  # Use explicit AppConfig to enable ready() method
+    'academy_crm',  # Project app (needed for management commands)
     'catalog',
     'admissions',
     'attendance',
