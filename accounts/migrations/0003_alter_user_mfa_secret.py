@@ -10,7 +10,8 @@ def clear_mfa_secrets(apps, schema_editor):
     """Clear existing mfa_secret values to prevent encoding errors."""
     User = apps.get_model('accounts', 'User')
     # Clear all mfa_secret values and disable MFA
-    User.objects.filter(mfa_secret__isnull=False).update(
+    # Now that the field allows null=True, we can safely set to None
+    User.objects.filter(mfa_secret__isnull=False).exclude(mfa_secret='').update(
         mfa_secret=None,
         mfa_enabled=False
     )
@@ -28,12 +29,24 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        # Step 1: Clear existing data to prevent encoding errors
+        # Step 1: First alter CharField to allow null=True (if it doesn't already)
+        # This ensures we can set values to None if needed
+        migrations.AlterField(
+            model_name='user',
+            name='mfa_secret',
+            field=models.CharField(
+                blank=True,
+                help_text='MFA secret key',
+                max_length=32,
+                null=True
+            ),
+        ),
+        # Step 2: Clear existing data to prevent encoding errors
         migrations.RunPython(
             clear_mfa_secrets,
             reverse_clear_mfa_secrets,
         ),
-        # Step 2: Convert field from CharField to EncryptedTextField
+        # Step 3: Convert field from CharField to EncryptedTextField
         migrations.AlterField(
             model_name='user',
             name='mfa_secret',
