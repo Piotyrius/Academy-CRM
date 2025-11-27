@@ -21,33 +21,68 @@ class Command(BaseCommand):
 
     def _disconnect_guardian_signal(self):
         """
-        Disconnect guardian's post_migrate signal.
+        Disconnect guardian's post_migrate signal aggressively.
         
         This must be called before each migrate call because guardian may reconnect
         its signal when Django reloads apps during migrations.
         
-        Uses the correct sender (auth app) to match how guardian connects the signal.
+        Tries multiple approaches to ensure the signal is disconnected:
+        1. Disconnect with auth app as sender
+        2. Disconnect without sender (all senders)
+        3. Disconnect by dispatch_uid only
         """
         try:
             from guardian import management
             
-            # Get the auth app config - this is the sender guardian uses
-            auth_app = apps.get_app_config('auth')
+            disconnected = False
             
+            # Try multiple approaches to disconnect the signal
+            # Approach 1: Disconnect with auth app as sender
             try:
-                # Disconnect with the correct sender and dispatch_uid
+                auth_app = apps.get_app_config('auth')
                 post_migrate.disconnect(
                     management.create_anonymous_user,
                     sender=auth_app,
                     dispatch_uid='guardian.management.create_anonymous_user'
                 )
+                disconnected = True
+            except (ValueError, TypeError):
+                pass
+            
+            # Approach 2: Disconnect without sender (all senders)
+            try:
+                post_migrate.disconnect(
+                    management.create_anonymous_user,
+                    dispatch_uid='guardian.management.create_anonymous_user'
+                )
+                disconnected = True
+            except (ValueError, TypeError):
+                pass
+            
+            # Approach 3: Disconnect by function only (no dispatch_uid)
+            try:
+                post_migrate.disconnect(
+                    management.create_anonymous_user,
+                    sender=apps.get_app_config('auth')
+                )
+                disconnected = True
+            except (ValueError, TypeError):
+                pass
+            
+            # Approach 4: Disconnect by function only (no sender, no dispatch_uid)
+            try:
+                post_migrate.disconnect(management.create_anonymous_user)
+                disconnected = True
+            except (ValueError, TypeError):
+                pass
+            
+            if disconnected:
                 self.stdout.write(self.style.WARNING('⚠️  Guardian post_migrate signal disconnected'))
-                return True
-            except (ValueError, TypeError) as e:
-                # Signal not connected yet, that's fine
-                # It might have been disconnected already or not connected yet
-                self.stdout.write(self.style.WARNING(f'Guardian signal not connected (OK): {e}'))
-                return False
+            else:
+                self.stdout.write(self.style.WARNING('⚠️  Guardian signal not connected (OK)'))
+            
+            return disconnected
+            
         except ImportError:
             # Guardian not available
             return False
