@@ -3,6 +3,15 @@ set -e
 
 echo "Running pre-deploy commands..."
 
+# Clear mfa_secret data BEFORE migrations to prevent guardian signal errors
+# Guardian's post_migrate signal queries User model, and fernet_fields will fail
+# if it tries to decrypt old CharField data
+echo "Clearing mfa_secret data (pre-migration)..."
+python3 scripts/clear_mfa_data.py 2>&1 || python scripts/clear_mfa_data.py 2>&1 || {
+    echo "WARNING: Data clear script had issues, but continuing..."
+    echo "   This is OK if the database is fresh or already cleared"
+}
+
 # Create any missing migrations
 echo "Creating missing migrations..."
 python manage.py makemigrations --noinput || {
