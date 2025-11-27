@@ -30,12 +30,43 @@ def _patch_fernet_fields():
     This patch wraps the from_db_value method to catch and handle the encoding error.
     """
     try:
-        import fernet_fields.fields
+        import fernet_fields
         import logging
         logger = logging.getLogger(__name__)
         
+        # Find the actual field class - EncryptedTextField is imported from fernet_fields directly
+        # Check what's available in fernet_fields
+        EncryptedTextField = getattr(fernet_fields, 'EncryptedTextField', None)
+        
+        if not EncryptedTextField:
+            # Try fernet_fields.fields
+            try:
+                import fernet_fields.fields as fields_module
+                EncryptedTextField = getattr(fields_module, 'EncryptedTextField', None)
+            except ImportError:
+                pass
+        
+        if not EncryptedTextField:
+            logger.warning("⚠️ Could not find EncryptedTextField in fernet_fields")
+            return
+        
+        # Get the base class - EncryptedTextField might inherit from something
+        # Find the actual class that has from_db_value
+        field_class = EncryptedTextField
+        base_class = None
+        
+        # Try to find the base class by checking MRO (Method Resolution Order)
+        for cls in EncryptedTextField.__mro__:
+            if hasattr(cls, 'from_db_value') and cls != object:
+                base_class = cls
+                break
+        
+        if not base_class:
+            # If we can't find it in MRO, use EncryptedTextField itself
+            base_class = EncryptedTextField
+        
         # Store the original method
-        original_from_db_value = fernet_fields.fields.FernetField.from_db_value
+        original_from_db_value = base_class.from_db_value
         
         def patched_from_db_value(self, value, expression, connection):
             """
@@ -85,39 +116,29 @@ def _patch_fernet_fields():
             # For other types, use original method
             return original_from_db_value(self, value, expression, connection)
         
-        # Apply the patch to FernetField base class
-        fernet_fields.fields.FernetField.from_db_value = patched_from_db_value
-        logger.info("✅ Patched fernet_fields.fields.FernetField.from_db_value")
+        # Apply the patch to the base class
+        base_class.from_db_value = patched_from_db_value
+        logger.info(f"✅ Patched base class: {base_class.__name__}")
         
-        # Also patch EncryptedTextField - check both locations
-        # EncryptedTextField might be in fernet_fields.fields or fernet_fields directly
-        if hasattr(fernet_fields, 'EncryptedTextField'):
-            # EncryptedTextField at module level
-            if fernet_fields.EncryptedTextField != fernet_fields.fields.FernetField:
-                fernet_fields.EncryptedTextField.from_db_value = patched_from_db_value
-                logger.info("✅ Patched fernet_fields.EncryptedTextField.from_db_value")
+        # Patch EncryptedTextField directly
+        EncryptedTextField.from_db_value = patched_from_db_value
+        logger.info("✅ Patched EncryptedTextField.from_db_value")
         
-        if hasattr(fernet_fields.fields, 'EncryptedTextField'):
-            # EncryptedTextField in fields submodule
-            if fernet_fields.fields.EncryptedTextField != fernet_fields.fields.FernetField:
-                fernet_fields.fields.EncryptedTextField.from_db_value = patched_from_db_value
-                logger.info("✅ Patched fernet_fields.fields.EncryptedTextField.from_db_value")
-        
-        # Patch all field classes in the module that inherit from FernetField
+        # Patch all classes in the MRO of EncryptedTextField that have from_db_value
         patched_count = 0
-        for attr_name in dir(fernet_fields.fields):
-            attr = getattr(fernet_fields.fields, attr_name, None)
-            if (attr and 
-                isinstance(attr, type) and 
-                issubclass(attr, fernet_fields.fields.FernetField) and 
-                attr != fernet_fields.fields.FernetField):
+        for cls in EncryptedTextField.__mro__:
+            if (cls != object and 
+                cls != base_class and 
+                hasattr(cls, 'from_db_value') and
+                cls.from_db_value != patched_from_db_value):
                 try:
-                    attr.from_db_value = patched_from_db_value
+                    cls.from_db_value = patched_from_db_value
                     patched_count += 1
+                    logger.info(f"✅ Patched {cls.__name__}.from_db_value")
                 except Exception:
                     pass  # Skip if we can't patch it
         
-        # Also check fernet_fields module level
+        # Also check fernet_fields module for other field classes
         for attr_name in dir(fernet_fields):
             if attr_name.startswith('_'):
                 continue
@@ -125,17 +146,23 @@ def _patch_fernet_fields():
             if (attr and 
                 isinstance(attr, type) and 
                 hasattr(attr, 'from_db_value') and
-                attr != fernet_fields.fields.FernetField):
+                attr != EncryptedTextField and
+                attr != base_class):
                 try:
-                    # Check if it's a field class
-                    if hasattr(attr, '__bases__') and any('Field' in str(base) for base in attr.__bases__):
-                        attr.from_db_value = patched_from_db_value
-                        patched_count += 1
+                    # Check if it's a field class (inherits from models.Field or similar)
+                    if hasattr(attr, '__bases__'):
+                        # Check if it's a Django field
+                        from django.db import models
+                        if any(issubclass(base, models.Field) if isinstance(base, type) else False 
+                               for base in attr.__bases__):
+                            attr.from_db_value = patched_from_db_value
+                            patched_count += 1
+                            logger.info(f"✅ Patched {attr_name}.from_db_value")
                 except Exception:
                     pass  # Skip if we can't patch it
         
         if patched_count > 0:
-            logger.info(f"✅ Patched {patched_count} additional fernet_fields subclasses")
+            logger.info(f"✅ Patched {patched_count} additional field classes")
         
         logger.info("✅ fernet_fields encoding patch applied successfully")
         
