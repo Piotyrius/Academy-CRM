@@ -35,14 +35,25 @@ class AccountsConfig(AppConfig):
                 from guardian import management
                 from django.apps import apps
                 
-                # Disconnect guardian's post_migrate signal - try multiple approaches
+                # Monkey-patch guardian's create_anonymous_user to do nothing during migrations
+                # This is more reliable than disconnecting signals
+                original_create_anonymous_user = management.create_anonymous_user
+                
+                def noop_create_anonymous_user(*args, **kwargs):
+                    """No-op version that does nothing during migrations."""
+                    pass
+                
+                # Replace the function
+                management.create_anonymous_user = noop_create_anonymous_user
+                
+                # Also try to disconnect the signal as backup
                 disconnected = False
                 
-                # Approach 1: Disconnect with auth app as sender (guardian's typical setup)
+                # Approach 1: Disconnect with auth app as sender
                 try:
                     auth_app = apps.get_app_config('auth')
                     post_migrate.disconnect(
-                        management.create_anonymous_user,
+                        original_create_anonymous_user,
                         sender=auth_app,
                         dispatch_uid='guardian.management.create_anonymous_user'
                     )
@@ -53,7 +64,7 @@ class AccountsConfig(AppConfig):
                 # Approach 2: Disconnect without sender
                 try:
                     post_migrate.disconnect(
-                        management.create_anonymous_user,
+                        original_create_anonymous_user,
                         dispatch_uid='guardian.management.create_anonymous_user'
                     )
                     disconnected = True
@@ -62,14 +73,13 @@ class AccountsConfig(AppConfig):
                 
                 # Approach 3: Disconnect by function only
                 try:
-                    post_migrate.disconnect(management.create_anonymous_user)
+                    post_migrate.disconnect(original_create_anonymous_user)
                     disconnected = True
                 except (ValueError, TypeError):
                     pass
                 
-                if disconnected:
-                    # Use print instead of logger since Django might not be fully configured
-                    print("⚠️  Guardian post_migrate signal disconnected for migrations")
+                # Use print instead of logger since Django might not be fully configured
+                print("⚠️  Guardian create_anonymous_user disabled for migrations")
             except ImportError:
                 # Guardian not available, nothing to do
                 pass
