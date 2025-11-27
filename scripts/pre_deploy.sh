@@ -23,7 +23,7 @@ python manage.py makemigrations --noinput || {
 # 2. Runs migrations in correct order (subscriptions → accounts → others)
 # 3. Prevents fernet_fields encoding errors
 echo "Running database migrations safely..."
-python manage.py migrate_safe --noinput || {
+python manage.py migrate_safe_guardian --noinput || {
     echo "ERROR: Migrations failed"
     exit 1
 }
