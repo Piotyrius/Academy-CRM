@@ -25,6 +25,7 @@ print("=" * 80)
 print("\n1. ENVIRONMENT VARIABLES:")
 print("-" * 80)
 db_vars = {
+    'DATABASE_URL': os.getenv('DATABASE_URL', 'NOT SET'),
     'DB_HOST': os.getenv('DB_HOST', 'NOT SET'),
     'DB_NAME': os.getenv('DB_NAME', 'NOT SET'),
     'DB_USER': os.getenv('DB_USER', 'NOT SET'),
@@ -33,20 +34,30 @@ db_vars = {
 }
 
 for key, value in db_vars.items():
-    print(f"  {key}: {value}")
+    if key == 'DATABASE_URL' and value != 'NOT SET':
+        # Parse DATABASE_URL to show database name
+        try:
+            from urllib.parse import urlparse
+            parsed = urlparse(value)
+            db_name_from_url = parsed.path.lstrip('/') if parsed.path else 'NOT SPECIFIED'
+            print(f"  {key}: {value[:50]}... (database: {db_name_from_url})")
+        except:
+            print(f"  {key}: {value[:50]}...")
+    else:
+        print(f"  {key}: {value}")
 
 # 2. Check Django database settings
-print("\n2. DJANGO DATABASE SETTINGS:")
+print("\n2. DJANGO DATABASE SETTINGS (ACTUAL CONFIGURATION):")
 print("-" * 80)
 db_config = settings.DATABASES['default']
 print(f"  ENGINE: {db_config.get('ENGINE')}")
-print(f"  NAME: {db_config.get('NAME')}")
+print(f"  NAME: {db_config.get('NAME')} ⬅️ THIS IS THE DATABASE BEING USED")
 print(f"  USER: {db_config.get('USER')}")
 print(f"  HOST: {db_config.get('HOST')}")
 print(f"  PORT: {db_config.get('PORT')}")
 print(f"  PASSWORD: {'SET' if db_config.get('PASSWORD') else 'NOT SET'}")
 
-# 3. Test raw connection
+# 3. Test raw connection and get current database
 print("\n3. TESTING RAW DATABASE CONNECTION:")
 print("-" * 80)
 try:
@@ -54,7 +65,26 @@ try:
         cursor.execute("SELECT version();")
         version = cursor.fetchone()
         print(f"  ✅ Connection successful!")
-        print(f"  PostgreSQL version: {version[0]}")
+        print(f"  PostgreSQL version: {version[0][:60]}...")
+        
+        # Get current database name
+        cursor.execute("SELECT current_database();")
+        current_db = cursor.fetchone()[0]
+        print(f"  📊 CURRENT DATABASE: {current_db}")
+        
+        # Get current user
+        cursor.execute("SELECT current_user;")
+        current_user = cursor.fetchone()[0]
+        print(f"  👤 CURRENT USER: {current_user}")
+        
+        # Check if database matches expected
+        expected_db = db_config.get('NAME')
+        if current_db == expected_db:
+            print(f"  ✅ Database matches expected: {expected_db}")
+        else:
+            print(f"  ⚠️  WARNING: Database mismatch!")
+            print(f"     Expected: {expected_db}")
+            print(f"     Actual: {current_db}")
 except Exception as e:
     print(f"  ❌ Connection failed: {e}")
     print(f"  Error type: {type(e).__name__}")
