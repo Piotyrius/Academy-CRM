@@ -61,6 +61,44 @@ class Application(models.Model):
         return f"{self.name} - {self.program.name} ({self.get_status_display()})"
 
 
+class ApplicationPhone(models.Model):
+    """
+    Additional phone numbers for an application.
+
+    This allows storing multiple named phone numbers (e.g. parent contacts)
+    without breaking the existing single `phone` field on Application.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    application = models.ForeignKey(
+        Application,
+        related_name='phones',
+        on_delete=models.CASCADE,
+        help_text=_('Application this phone number belongs to'),
+    )
+    name = models.CharField(
+        max_length=255,
+        help_text=_('Contact name or relation, e.g. "Mother", "Father", "Guardian"'),
+    )
+    phone = models.CharField(
+        max_length=20,
+        help_text=_('Phone number for this contact'),
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'application_phones'
+        verbose_name = _('application phone')
+        verbose_name_plural = _('application phones')
+        ordering = ['created_at']
+        indexes = [
+            models.Index(fields=['application']),
+            models.Index(fields=['phone']),
+        ]
+
+    def __str__(self):
+        return f"{self.name} ({self.phone}) - {self.application_id}"
+
+
 class EnrollmentStatus(models.TextChoices):
     """Enrollment status choices."""
     PENDING = 'PENDING', _('Pending')
