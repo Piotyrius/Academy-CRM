@@ -154,6 +154,15 @@ This link will expire in 7 days.''',
             # Lock cohort for update to prevent race condition
             cohort = Cohort.objects.select_for_update().get(id=cohort_id)
             
+            # Enforce subscription limits for users and students if organization is known
+            if organization and hasattr(organization, 'can_enroll_student'):
+                allowed, message = organization.can_enroll_student()
+                if not allowed:
+                    return Response(
+                        {'error': message},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+            
             # Check if student user exists or create
             user_created = False
             temp_password = None
@@ -165,8 +174,15 @@ This link will expire in 7 days.''',
                         {'error': 'User with this email is not a student'},
                         status=status.HTTP_400_BAD_REQUEST
                     )
-                # Update organization if not set
+                # Update organization if not set (and within plan limits)
                 if not student.organization and organization:
+                    if hasattr(organization, 'can_add_user'):
+                        allowed, message = organization.can_add_user()
+                        if not allowed:
+                            return Response(
+                                {'error': message},
+                                status=status.HTTP_400_BAD_REQUEST
+                            )
                     student.organization = organization
                     student.save()
             except User.DoesNotExist:
@@ -177,6 +193,13 @@ This link will expire in 7 days.''',
                 temp_password = self._generate_temp_password()
                 
                 # Create student user
+                if organization and hasattr(organization, 'can_add_user'):
+                    allowed, message = organization.can_add_user()
+                    if not allowed:
+                        return Response(
+                            {'error': message},
+                            status=status.HTTP_400_BAD_REQUEST
+                        )
                 student = User.objects.create_user(
                     email=application.email,
                     first_name=first_name,

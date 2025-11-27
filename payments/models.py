@@ -25,7 +25,10 @@ class Pricing(models.Model):
         blank=True,
         help_text=_('Organization this pricing belongs to')
     )
-    # Generic ForeignKey for flexible pricing levels
+    # Generic ForeignKey for flexible pricing levels.
+    # Currently supports Program, Course, and Cohort; other models are rejected
+    # in clean() to keep the domain explicit and pave the way for future
+    # migration to concrete foreign keys.
     content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
     object_id = models.UUIDField()
     pricing_object = GenericForeignKey('content_type', 'object_id')
@@ -61,9 +64,30 @@ class Pricing(models.Model):
         return f"{obj_name} - {self.amount} {self.currency} (from {self.effective_from})"
     
     def clean(self):
-        """Validate pricing dates."""
+        """Validate pricing dates and target object type."""
         if self.effective_to and self.effective_to < self.effective_from:
             raise ValidationError(_('Effective to date must be after effective from date.'))
+        
+        # Restrict pricing targets to Program, Course, or Cohort to avoid
+        # arbitrary generic relations and make future schema migration easier.
+        allowed_models = {Program, Course, Cohort}
+        if self.pricing_object is not None and type(self.pricing_object) not in allowed_models:
+            raise ValidationError(
+                _('Pricing can only be attached to Program, Course, or Cohort objects.')
+            )
+    
+    # Convenience helpers to make querying and future migrations easier
+    @property
+    def is_program_pricing(self) -> bool:
+        return isinstance(self.pricing_object, Program)
+
+    @property
+    def is_course_pricing(self) -> bool:
+        return isinstance(self.pricing_object, Course)
+
+    @property
+    def is_cohort_pricing(self) -> bool:
+        return isinstance(self.pricing_object, Cohort)
 
 
 class PaymentPlanType(models.TextChoices):
@@ -469,6 +493,27 @@ class Payment(models.Model):
     
     def __str__(self):
         return f"Payment {self.payment_number} - {self.amount} {self.currency}"
+
+    def clean(self):
+        """
+        Basic validation for gateway-related fields.
+
+        For manual payments, gateway fields are optional. For real gateways
+        (Stripe, PayPal, etc.), a transaction ID should be present once the
+        payment is marked as completed to ensure traceability.
+        """
+        # Avoid circular import at module import time
+        from .models import PaymentGateway, PaymentStatus  # type: ignore
+
+        if (
+            self.payment_gateway
+            and self.payment_gateway != PaymentGateway.MANUAL
+            and self.status == PaymentStatus.COMPLETED
+            and not self.gateway_transaction_id
+        ):
+            raise ValidationError(
+                _('gateway_transaction_id is required for completed gateway payments.')
+            )
 
 
 class PaymentScheduleStatus(models.TextChoices):

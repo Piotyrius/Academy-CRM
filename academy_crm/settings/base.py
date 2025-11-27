@@ -12,7 +12,9 @@ load_dotenv()
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-0w$j%9y@!300$#0xw58-ohk6rqnwicp#6q+ys8x9vv#js^xqj$')
+# Default is only for local development and tests; production must override.
+DEFAULT_INSECURE_SECRET_KEY = 'django-insecure-0w$j%9y@!300$#0xw58-ohk6rqnwicp#6q+ys8x9vv#js^xqj$'
+SECRET_KEY = os.getenv('SECRET_KEY', DEFAULT_INSECURE_SECRET_KEY)
 
 # Application definition
 INSTALLED_APPS = [
@@ -326,8 +328,10 @@ SPECTACULAR_SETTINGS = {
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': True,  # Include schema in response
     'SCHEMA_PATH_PREFIX': '/api/v1/',
-    'SERVE_PERMISSIONS': ['rest_framework.permissions.AllowAny'],  # Allow schema access without auth
-    'SERVE_AUTHENTICATION': None,  # No auth required for schema
+    # By default, require authentication for serving schema; CustomSpectacularAPIView
+    # further relaxes this in DEBUG for local development.
+    'SERVE_PERMISSIONS': ['rest_framework.permissions.IsAuthenticated'],
+    'SERVE_AUTHENTICATION': 'rest_framework_simplejwt.authentication.JWTAuthentication',
     'COMPONENT_SPLIT_REQUEST': True,
     'COMPONENT_NO_READ_ONLY_REQUIRED': True,
     # Make schema generation work without database

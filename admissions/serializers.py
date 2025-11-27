@@ -70,3 +70,30 @@ class EnrollmentSerializer(serializers.ModelSerializer):
         model = Enrollment
         fields = '__all__'
         read_only_fields = ['id', 'enrolled_at', 'created_at', 'updated_at']
+    
+    def _get_target_organization(self, attrs):
+        """
+        Determine which organization this enrollment should belong to.
+        
+        Prefer the explicit organization on the serializer data, then the
+        request-scoped organization, then the request user's organization.
+        """
+        organization = attrs.get('organization')
+        request = self.context.get('request')
+        if not organization and request is not None:
+            organization = getattr(request, 'organization', None) or getattr(
+                getattr(request, 'user', None), 'organization', None
+            )
+        return organization
+    
+    def validate(self, attrs):
+        """
+        Enforce subscription student limits when creating enrollments.
+        """
+        attrs = super().validate(attrs)
+        organization = self._get_target_organization(attrs)
+        if organization and hasattr(organization, 'can_enroll_student'):
+            allowed, message = organization.can_enroll_student()
+            if not allowed:
+                raise serializers.ValidationError({'non_field_errors': [message]})
+        return attrs

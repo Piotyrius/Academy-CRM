@@ -56,6 +56,44 @@ class UserCreateSerializer(serializers.ModelSerializer):
         model = User
         fields = ['email', 'password', 'first_name', 'last_name', 'phone', 'role']
     
+    def _get_target_organization(self):
+        """
+        Determine which organization the new user should belong to.
+        
+        Prefer the request's organization (set by TenantMiddleware / mixins),
+        falling back to the creator's organization if available.
+        """
+        request = self.context.get('request')
+        if not request:
+            return None
+        
+        organization = getattr(request, 'organization', None)
+        if organization is None and getattr(request, 'user', None):
+            organization = getattr(request.user, 'organization', None)
+        return organization
+    
+    def validate(self, attrs):
+        """
+        Enforce subscription user limits when creating users for an organization.
+        """
+        attrs = super().validate(attrs)
+        request = self.context.get('request')
+        organization = self._get_target_organization()
+
+        # For a strictly multi-tenant system, require an organization for new users,
+        # except when created by a superuser (global admin).
+        if (not organization) and not (request and getattr(request.user, 'is_superuser', False)):
+            raise serializers.ValidationError({
+                'non_field_errors': ['Organization is required when creating a user.']
+            })
+
+        if organization and hasattr(organization, 'can_add_user'):
+            allowed, message = organization.can_add_user()
+            if not allowed:
+                # Attach error to non-field errors so it's clearly visible
+                raise serializers.ValidationError({'non_field_errors': [message]})
+        return attrs
+    
     def create(self, validated_data):
         """Create user with hashed password."""
         password = validated_data.pop('password')
@@ -64,6 +102,11 @@ class UserCreateSerializer(serializers.ModelSerializer):
         # If created by admin, user is active immediately
         # Otherwise, user is inactive (pending approval)
         is_active = request and request.user and request.user.is_admin
+        
+        # Attach organization from context if available
+        organization = self._get_target_organization()
+        if organization:
+            validated_data.setdefault('organization', organization)
         
         user = User.objects.create_user(
             password=password,

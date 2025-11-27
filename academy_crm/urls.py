@@ -10,6 +10,7 @@ from drf_spectacular.views import (
     SpectacularRedocView,
     SpectacularSwaggerView,
 )
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from academy_crm.views import CustomSpectacularAPIView
 
 def root_view(request):
@@ -21,6 +22,8 @@ def root_view(request):
         'health': '/health/'
     })
 
+swagger_permissions = [AllowAny] if settings.DEBUG else [IsAuthenticated]
+
 urlpatterns = [
     path('', root_view, name='root'),
     path('admin/', admin.site.urls),
@@ -29,16 +32,22 @@ urlpatterns = [
     # API Documentation (publicly accessible for frontend developers)
     # Using trailing slashes consistently - Django will handle redirects
     path('api/schema/', CustomSpectacularAPIView.as_view(), name='schema'),
-    path('api/docs/', SpectacularSwaggerView.as_view(
-        url='/api/schema/',
-        authentication_classes=[],
-        permission_classes=[]
-    ), name='swagger-ui'),
-    path('api/docs/redoc/', SpectacularRedocView.as_view(
-        url='/api/schema/',
-        authentication_classes=[],
-        permission_classes=[]
-    ), name='redoc'),
+    path(
+        'api/docs/',
+        SpectacularSwaggerView.as_view(
+            url='/api/schema/',
+            permission_classes=swagger_permissions,
+        ),
+        name='swagger-ui',
+    ),
+    path(
+        'api/docs/redoc/',
+        SpectacularRedocView.as_view(
+            url='/api/schema/',
+            permission_classes=swagger_permissions,
+        ),
+        name='redoc',
+    ),
     
     # API v1
     path('api/v1/subscriptions/', include('subscriptions.urls')),  # Subscription management

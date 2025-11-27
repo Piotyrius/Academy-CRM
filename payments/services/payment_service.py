@@ -4,7 +4,7 @@ Payment service for managing payments.
 import uuid
 from decimal import Decimal
 from django.utils import timezone
-from ..models import Payment, PaymentStatus, PaymentMethodCode
+from ..models import Payment, PaymentStatus, PaymentMethodCode, PaymentGateway
 from .invoice_service import InvoiceService
 
 
@@ -77,7 +77,7 @@ class PaymentService:
         if kwargs.get('requires_receipt', False):
             receipt_number = PaymentService.generate_receipt_number(invoice.organization)
         
-        # Create payment
+        # Create payment (manual/offline by default)
         payment = Payment.objects.create(
             organization=invoice.organization,
             invoice=invoice,
@@ -86,7 +86,7 @@ class PaymentService:
             amount=amount,
             currency=invoice.pricing.currency,
             payment_method=payment_method,
-            payment_gateway=kwargs.get('payment_gateway', 'MANUAL'),
+            payment_gateway=kwargs.get('payment_gateway', PaymentGateway.MANUAL),
             gateway_transaction_id=kwargs.get('gateway_transaction_id'),
             gateway_response=kwargs.get('gateway_response'),
             status=PaymentStatus.COMPLETED,  # Manual payments are immediately completed

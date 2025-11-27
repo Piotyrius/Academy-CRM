@@ -35,6 +35,9 @@ class TenantMiddleware(MiddlewareMixin):
             request.organization = None
             return None
         
+        # Import settings lazily to avoid circular imports at module import time
+        from django.conf import settings
+        
         # Try to query the database, but handle missing tables gracefully
         try:
             # Method 1: Subdomain-based identification
@@ -67,17 +70,28 @@ class TenantMiddleware(MiddlewareMixin):
                         request.organization = None
                         return None
             
-            # Method 3: Query parameter (for testing/development)
+            # Method 3: Query parameter (primarily for testing/development or superusers)
+            # To avoid tenant spoofing in production, only honor ?org_id= when:
+            #   - DEBUG is True (local/dev), OR
+            #   - the requesting user is an authenticated superuser.
             if not organization:
-                org_id = request.GET.get('org_id')
-                if org_id:
-                    try:
-                        organization = Organization.objects.get(id=org_id, status__in=['ACTIVE', 'TRIAL'])
-                    except (Organization.DoesNotExist, ValueError):
-                        pass
-                    except (OperationalError, ProgrammingError):
-                        request.organization = None
-                        return None
+                can_use_query_param = False
+                user = getattr(request, 'user', None)
+                if getattr(settings, 'DEBUG', False):
+                    can_use_query_param = True
+                elif user is not None and getattr(user, 'is_authenticated', False) and getattr(user, 'is_superuser', False):
+                    can_use_query_param = True
+                
+                if can_use_query_param:
+                    org_id = request.GET.get('org_id')
+                    if org_id:
+                        try:
+                            organization = Organization.objects.get(id=org_id, status__in=['ACTIVE', 'TRIAL'])
+                        except (Organization.DoesNotExist, ValueError):
+                            pass
+                        except (OperationalError, ProgrammingError):
+                            request.organization = None
+                            return None
             
             # Method 4: User's organization (if authenticated)
             if not organization and hasattr(request, 'user') and request.user.is_authenticated:

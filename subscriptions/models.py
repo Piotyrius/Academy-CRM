@@ -65,6 +65,70 @@ class Organization(models.Model):
         if self.trial_ends_at is None:
             return True
         return timezone.now() < self.trial_ends_at
+    
+    # --- Subscription limit helpers -------------------------------------------------
+    def _get_subscription(self):
+        """
+        Safely return this organization's subscription, or None.
+        
+        Uses the reverse one-to-one relation but avoids raising if missing.
+        """
+        try:
+            return self.subscription  # type: ignore[attr-defined]
+        except Subscription.DoesNotExist:  # pragma: no cover - defensive
+            return None
+        except AttributeError:  # pragma: no cover - defensive
+            return None
+    
+    def _get_plan_limits(self):
+        """
+        Return (max_users, max_students) tuple for this organization's plan.
+        None means unlimited.
+        """
+        subscription = self._get_subscription()
+        if not subscription or not subscription.plan or not subscription.is_active:
+            return None, None
+        plan = subscription.plan
+        return plan.max_users, plan.max_students
+    
+    def can_add_user(self):
+        """
+        Check if another user can be added under the current subscription plan.
+        
+        Returns (allowed: bool, message: str | None)
+        """
+        max_users, _ = self._get_plan_limits()
+        # Unlimited users for this plan
+        if max_users is None:
+            return True, None
+        
+        # Count active users in this organization
+        current_users = self.users.filter(is_active=True).count()
+        if current_users >= max_users:
+            return False, _(
+                f'User limit reached for the current subscription plan (max {max_users} users).'
+            )
+        return True, None
+    
+    def can_enroll_student(self):
+        """
+        Check if another student enrollment can be created under the plan.
+        
+        Returns (allowed: bool, message: str | None)
+        """
+        _, max_students = self._get_plan_limits()
+        # Unlimited students for this plan
+        if max_students is None:
+            return True, None
+        
+        # Count active + pending enrollments in this organization
+        active_statuses = ['ACTIVE', 'PENDING']
+        current_enrollments = self.enrollments.filter(status__in=active_statuses).count()
+        if current_enrollments >= max_students:
+            return False, _(
+                f'Student limit reached for the current subscription plan (max {max_students} students).'
+            )
+        return True, None
 
 
 class BillingCycle(models.TextChoices):

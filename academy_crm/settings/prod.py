@@ -2,10 +2,19 @@
 Production settings for Academy CRM.
 """
 from .base import *
+from django.core.exceptions import ImproperlyConfigured
 import sentry_sdk
 from sentry_sdk.integrations.django import DjangoIntegration
 
 DEBUG = False
+
+# SECRET_KEY must be explicitly set in the environment for production and must
+# not use the insecure default defined in base settings.
+if not SECRET_KEY or SECRET_KEY == DEFAULT_INSECURE_SECRET_KEY:
+    raise ImproperlyConfigured(
+        "SECRET_KEY is not set or is using the insecure default. "
+        "Set a strong SECRET_KEY environment variable for production."
+    )
 
 # ALLOWED_HOSTS - filter out empty strings from comma-separated list
 allowed_hosts_env = os.getenv('ALLOWED_HOSTS', '')
@@ -59,6 +68,28 @@ if not ALLOWED_HOSTS:
         # But set a minimal default to avoid issues
         # The middleware will add the actual Render hostname at runtime
         ALLOWED_HOSTS = ['localhost', '127.0.0.1']
+
+# Optional: validate ALLOWED_HOSTS against an explicit whitelist, if provided.
+# This allows stricter host validation without hard-coding domains in code.
+expected_hosts_env = os.getenv('EXPECTED_ALLOWED_HOSTS', '')
+if expected_hosts_env:
+    expected_hosts = {
+        host.strip() for host in expected_hosts_env.split(',') if host.strip()
+    }
+    # Allow common local/test hosts and Render dynamic hosts in addition
+    def _is_allowed_host(host: str) -> bool:
+        if host in {'localhost', '127.0.0.1', 'testserver'}:
+            return True
+        if '.onrender.com' in host:
+            return True
+        return host in expected_hosts
+
+    invalid_hosts = [host for host in ALLOWED_HOSTS if not _is_allowed_host(host)]
+    if invalid_hosts:
+        raise ImproperlyConfigured(
+            f"ALLOWED_HOSTS contains unexpected values: {invalid_hosts}. "
+            f"Expected one of: {sorted(expected_hosts)} or *.onrender.com."
+        )
         # Try to get from RENDER_EXTERNAL_HOSTNAME if available
         render_host = os.getenv('RENDER_EXTERNAL_HOSTNAME')
         if render_host:
