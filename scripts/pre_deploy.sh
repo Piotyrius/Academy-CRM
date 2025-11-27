@@ -20,10 +20,10 @@ python manage.py makemigrations --noinput || {
     echo "WARNING: makemigrations had issues, but continuing..."
 }
 
-# Run migrations using standard migrate command
+# Run migrations using wrapper script that disconnects guardian
 # DISABLE_GUARDIAN_SIGNAL=1 ensures guardian signal is disconnected
 echo "Running database migrations..."
-python manage.py migrate --noinput || {
+python scripts/migrate_without_guardian.py --noinput || {
     echo "ERROR: Migrations failed"
     exit 1
 }

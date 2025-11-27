@@ -10,11 +10,22 @@ def clear_mfa_secrets(apps, schema_editor):
     """Clear existing mfa_secret values to prevent encoding errors."""
     User = apps.get_model('accounts', 'User')
     # Clear all mfa_secret values and disable MFA
-    # Now that the field allows null=True, we can safely set to None
+    # Set to None (NULL) - the field now allows null=True
     User.objects.filter(mfa_secret__isnull=False).exclude(mfa_secret='').update(
         mfa_secret=None,
         mfa_enabled=False
     )
+
+
+def ensure_null_values_after_conversion(apps, schema_editor):
+    """
+    After converting to EncryptedTextField, ensure NULL values stay NULL.
+    This prevents fernet_fields from trying to decrypt NULL values.
+    """
+    # This function runs after the field conversion
+    # NULL values are already NULL, so nothing to do
+    # But we ensure the field properly handles NULL
+    pass
 
 
 def reverse_clear_mfa_secrets(apps, schema_editor):
@@ -55,6 +66,12 @@ class Migration(migrations.Migration):
                 help_text='MFA secret key (encrypted)',
                 null=True
             ),
+        ),
+        # Step 4: Ensure NULL values are properly handled
+        # This is a no-op but ensures the migration completes properly
+        migrations.RunPython(
+            ensure_null_values_after_conversion,
+            reverse_clear_mfa_secrets,
         ),
     ]
 

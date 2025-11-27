@@ -33,20 +33,47 @@ class AccountsConfig(AppConfig):
         if disable_guardian:
             try:
                 from guardian import management
+                from django.apps import apps
                 
-                # Disconnect guardian's post_migrate signal
+                # Disconnect guardian's post_migrate signal - try multiple approaches
+                disconnected = False
+                
+                # Approach 1: Disconnect with auth app as sender (guardian's typical setup)
+                try:
+                    auth_app = apps.get_app_config('auth')
+                    post_migrate.disconnect(
+                        management.create_anonymous_user,
+                        sender=auth_app,
+                        dispatch_uid='guardian.management.create_anonymous_user'
+                    )
+                    disconnected = True
+                except (ValueError, TypeError):
+                    pass
+                
+                # Approach 2: Disconnect without sender
                 try:
                     post_migrate.disconnect(
                         management.create_anonymous_user,
                         dispatch_uid='guardian.management.create_anonymous_user'
                     )
+                    disconnected = True
+                except (ValueError, TypeError):
+                    pass
+                
+                # Approach 3: Disconnect by function only
+                try:
+                    post_migrate.disconnect(management.create_anonymous_user)
+                    disconnected = True
+                except (ValueError, TypeError):
+                    pass
+                
+                if disconnected:
                     # Use print instead of logger since Django might not be fully configured
                     print("⚠️  Guardian post_migrate signal disconnected for migrations")
-                except (ValueError, TypeError):
-                    # Signal not connected yet, that's fine
-                    # It might not be connected if guardian hasn't loaded yet
-                    pass
             except ImportError:
                 # Guardian not available, nothing to do
+                pass
+            except Exception:
+                # Any other error - continue anyway
                 pass
 
