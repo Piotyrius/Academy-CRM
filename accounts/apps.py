@@ -1,6 +1,7 @@
 """
 Accounts app configuration for Academy CRM.
 """
+import os
 import sys
 from django.apps import AppConfig
 from django.db.models.signals import post_migrate
@@ -22,8 +23,14 @@ class AccountsConfig(AppConfig):
         The signal is disconnected only during migrations to avoid interfering with
         normal operation where guardian's anonymous user creation is needed.
         """
-        # Check if we're running migrations
-        if 'migrate' in sys.argv or 'makemigrations' in sys.argv:
+        # Check if we should disable guardian signal (via environment variable or migrate command)
+        disable_guardian = (
+            os.getenv('DISABLE_GUARDIAN_SIGNAL', '').lower() == '1' or
+            'migrate' in sys.argv or 
+            'makemigrations' in sys.argv
+        )
+        
+        if disable_guardian:
             try:
                 from guardian import management
                 

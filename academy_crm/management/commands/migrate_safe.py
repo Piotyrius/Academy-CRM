@@ -2,15 +2,14 @@
 Safe migration command that handles Guardian signal issues.
 Runs migrations in the correct order to avoid Guardian querying User before organization field exists.
 Also disconnects guardian signal to prevent fernet_fields encoding errors.
+
+Note: Guardian disconnection is now handled in accounts/apps.py via DISABLE_GUARDIAN_SIGNAL
+environment variable. This command is kept for backward compatibility.
 """
 from django.core.management.base import BaseCommand
 from django.core.management import call_command
 from django.db.models.signals import post_migrate
 from django.apps import apps
-
-# Ensure fernet_fields patch is applied before migrations
-# This import triggers the patch in compat.py
-from academy_crm import compat  # noqa: F401
 
 
 class Command(BaseCommand):

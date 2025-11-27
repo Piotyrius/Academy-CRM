@@ -1,6 +1,9 @@
 #!/bin/bash
 set -e
 
+# Disable guardian signal to prevent crashes during migration
+export DISABLE_GUARDIAN_SIGNAL=1
+
 echo "Running pre-deploy commands..."
 
 # Clear mfa_secret data BEFORE migrations (optional safety measure)
@@ -17,13 +20,10 @@ python manage.py makemigrations --noinput || {
     echo "WARNING: makemigrations had issues, but continuing..."
 }
 
-# Run migrations using migrate_safe command
-# This command:
-# 1. Disconnects guardian signal (via AppConfig.ready() and command itself)
-# 2. Runs migrations in correct order (subscriptions → accounts → others)
-# 3. Prevents fernet_fields encoding errors
-echo "Running database migrations safely..."
-python manage.py migrate_safe --noinput || {
+# Run migrations using standard migrate command
+# DISABLE_GUARDIAN_SIGNAL=1 ensures guardian signal is disconnected
+echo "Running database migrations..."
+python manage.py migrate --noinput || {
     echo "ERROR: Migrations failed"
     exit 1
 }
