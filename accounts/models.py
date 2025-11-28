@@ -8,6 +8,30 @@ from django.utils.translation import gettext_lazy as _
 from django.core.exceptions import ValidationError
 from fernet_fields import EncryptedTextField
 
+# Safety patch for django-fernet-fields: avoid crashing on InvalidToken when
+# loading rows (e.g. corrupted or old MFA secrets). If anything goes wrong,
+# we fail silently so the app can still start.
+try:  # pragma: no cover - defensive
+    from fernet_fields.fields import FernetField  # type: ignore[import]
+    from cryptography.fernet import InvalidToken  # type: ignore[import]
+
+    _original_from_db_value = getattr(FernetField, "from_db_value", None)
+
+    if callable(_original_from_db_value):
+
+        def safe_from_db_value(self, value, expression, connection):
+            if value in (None, b"", ""):
+                return value
+            try:
+                return _original_from_db_value(self, value, expression, connection)
+            except InvalidToken:
+                # Treat undecryptable values as missing; callers will see None.
+                return None
+
+        FernetField.from_db_value = safe_from_db_value  # type: ignore[assignment]
+except Exception:
+    pass
+
 
 class Role(models.TextChoices):
     """User role choices."""
