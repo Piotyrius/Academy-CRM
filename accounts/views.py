@@ -5,6 +5,7 @@ from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework_simplejwt.views import TokenObtainPairView
+from drf_spectacular.utils import extend_schema
 from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
@@ -133,6 +134,17 @@ class CustomTokenObtainPairView(TokenObtainPairView):
 
 @api_view(['POST'])
 @permission_classes([permissions.AllowAny])
+@extend_schema(
+    request=PasswordResetRequestSerializer,
+    responses={200: OpenApiTypes.OBJECT},
+    tags=['Authentication'],
+    summary="Request password reset email",
+    description=(
+        "Accepts an email address and, if an account exists, sends a password "
+        "reset link to that address. Always returns a generic success message "
+        "to avoid leaking whether the email exists."
+    ),
+)
 def password_reset_request(request):
     """Request password reset - sends email with reset link."""
     # Apply basic throttling to password reset requests
@@ -198,6 +210,16 @@ def password_reset_request(request):
 
 @api_view(['POST'])
 @permission_classes([permissions.AllowAny])
+@extend_schema(
+    request=PasswordResetConfirmSerializer,
+    responses={200: OpenApiTypes.OBJECT, 400: OpenApiTypes.OBJECT},
+    tags=['Authentication'],
+    summary="Confirm password reset",
+    description=(
+        "Accepts a token (uid.token) and a new password. If the token is valid,"
+        " the user's password is updated."
+    ),
+)
 def password_reset_confirm(request):
     """Confirm password reset with token."""
     serializer = PasswordResetConfirmSerializer(data=request.data)
