@@ -3,6 +3,7 @@ Serializers for accounts app.
 """
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from cryptography.fernet import InvalidToken
 from .models import User, Role
 
 
@@ -129,11 +130,41 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         return token
     
     def validate(self, attrs):
-        # Map 'email' to 'username' for parent validation
-        # Since USERNAME_FIELD is 'email', Django will use email as username
+        """
+        Validate credentials and return JWT data with embedded user info.
+
+        Additionally, handle cases where the user's `mfa_secret` cannot be
+        decrypted (e.g. after `SECRET_KEY` rotation or data corruption) so that
+        login never returns a 500 due to `InvalidToken`.
+        """
+        # Map 'email' to 'username' for parent validation.
+        # Since USERNAME_FIELD is 'email', Django will use email as username.
         if 'email' in attrs and 'username' not in attrs:
             attrs['username'] = attrs['email']
-        data = super().validate(attrs)
+
+        try:
+            data = super().validate(attrs)
+        except InvalidToken:
+            # If decrypting `mfa_secret` fails while loading the user, clear
+            # the secret for this account and retry once so we avoid a 500 and
+            # let the user re-enable MFA later.
+            email = attrs.get('email') or attrs.get('username')
+            if email:
+                # Use queryset.update() so we don't have to load the model
+                # instance (which would try to decrypt the invalid value again).
+                User.objects.filter(email=email).update(
+                    mfa_secret=None,
+                    mfa_enabled=False,
+                )
+                try:
+                    data = super().validate(attrs)
+                except InvalidToken:
+                    raise serializers.ValidationError(
+                        'User authentication failed due to invalid MFA data. '
+                        'Please contact support.'
+                    )
+            else:
+                raise serializers.ValidationError('User authentication failed.')
         
         # Ensure user is available and add user data to response
         if not hasattr(self, 'user') or self.user is None:
