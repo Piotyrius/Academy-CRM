@@ -22,7 +22,8 @@ def root_view(request):
         'health': '/health/'
     })
 
-swagger_permissions = [AllowAny] if settings.DEBUG else [IsAuthenticated]
+# Swagger docs are publicly accessible to simplify integration.
+swagger_permissions = [AllowAny]
 
 urlpatterns = [
     path('', root_view, name='root'),

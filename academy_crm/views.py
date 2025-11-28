@@ -19,25 +19,16 @@ class CustomSpectacularAPIView(SpectacularAPIView):
     Custom schema view that handles errors gracefully.
     Works even if database is not available.
 
-    In production, access is restricted to authenticated users; in DEBUG,
-    schema remains publicly accessible for easier local development.
+    API docs are exposed without authentication so frontend developers and
+    integrators can inspect the schema in any environment.
     """
 
-    # Use JWT for authentication when protection is enabled
-    authentication_classes = [JWTAuthentication]
+    # No authentication required for schema access.
+    authentication_classes = []
 
     def get_permissions(self):
-        # Allow open access in DEBUG to simplify local development.
-        if getattr(settings, "DEBUG", False):
-            return [AllowAny()]
-        # Require authentication otherwise.
-        return [IsAuthenticated()]
-
-    def get_authenticators(self):
-        # In DEBUG, don't require authentication for schema access.
-        if getattr(settings, "DEBUG", False):
-            return []
-        return super().get_authenticators()
+        # Always allow any user to access the schema.
+        return [AllowAny()]
 
     def get(self, request, *args, **kwargs):
         try:

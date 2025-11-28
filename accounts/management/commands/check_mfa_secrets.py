@@ -38,19 +38,26 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         auto_fix: bool = options["auto_fix"]
 
-        qs = User.objects.filter(mfa_secret__isnull=False).exclude(mfa_secret="")
+        # EncryptedTextField does not support lookups like exact/contains,
+        # so we cannot filter on `mfa_secret` directly. Instead, iterate over
+        # all users (or those with MFA enabled) and try to access the field.
+        qs = User.objects.all()
 
         total = qs.count()
         invalid_count = 0
         fixed_count = 0
 
         if total == 0:
-            self.stdout.write(self.style.SUCCESS("No users with non-empty `mfa_secret` found."))
+            self.stdout.write(self.style.SUCCESS("No users found to scan."))
             return
 
-        self.stdout.write(f"Scanning {total} users with non-empty `mfa_secret`...")
+        self.stdout.write(f"Scanning {total} users for invalid `mfa_secret` values...")
 
         for user in qs.iterator():
+            # Skip users that clearly have MFA disabled and no secret set.
+            if not getattr(user, "mfa_enabled", False):
+                continue
+
             try:
                 # Accessing the field forces decryption via fernet_fields.
                 _ = user.mfa_secret  # noqa: F841
@@ -69,8 +76,7 @@ class Command(BaseCommand):
                     fixed_count += 1
 
         summary = (
-            f"Scan complete. Total with non-empty `mfa_secret`: {total}, "
-            f"invalid: {invalid_count}"
+            f"Scan complete. Users with invalid `mfa_secret`: {invalid_count}"
         )
 
         if auto_fix:
@@ -80,5 +86,4 @@ class Command(BaseCommand):
             self.stdout.write(self.style.SUCCESS(summary))
         else:
             self.stdout.write(self.style.WARNING(summary))
-
 
