@@ -37,6 +37,7 @@ urlpatterns = [
         SpectacularSwaggerView.as_view(
             url='/api/schema/',
             permission_classes=swagger_permissions,
+            authentication_classes=[],  # handled by schema view; keep Swagger public
         ),
         name='swagger-ui',
     ),
@@ -45,6 +46,7 @@ urlpatterns = [
         SpectacularRedocView.as_view(
             url='/api/schema/',
             permission_classes=swagger_permissions,
+            authentication_classes=[],  # keep ReDoc public / un-authenticated
         ),
         name='redoc',
     ),
