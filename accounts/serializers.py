@@ -5,6 +5,7 @@ from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from cryptography.fernet import InvalidToken
 from .models import User, Role
+from .mfa import verify_totp
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -165,11 +166,25 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
                     )
             else:
                 raise serializers.ValidationError('User authentication failed.')
-        
-        # Ensure user is available and add user data to response
+
+        # Ensure user is available
         if not hasattr(self, 'user') or self.user is None:
             raise serializers.ValidationError('User authentication failed.')
-        
+
+        # Enforce MFA if enabled for this user.
+        if getattr(self.user, 'mfa_enabled', False):
+            mfa_code = attrs.get('mfa_code')
+            if not mfa_code:
+                raise serializers.ValidationError(
+                    {'mfa_code': 'MFA code is required for this account.'}
+                )
+            # `mfa_secret` is encrypted at rest; accessing it decrypts via fernet_fields.
+            secret = getattr(self.user, 'mfa_secret', None)
+            if not secret or not verify_totp(secret, str(mfa_code).strip()):
+                raise serializers.ValidationError(
+                    {'mfa_code': 'Invalid or expired MFA code.'}
+                )
+
         # Serialize user data and add to response
         user_serializer = UserSerializer(self.user)
         data['user'] = user_serializer.data

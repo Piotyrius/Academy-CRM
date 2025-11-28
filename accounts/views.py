@@ -11,11 +11,13 @@ from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes, force_str
 from django.core.mail import send_mail
 from django.conf import settings
+from .mfa import generate_mfa_secret, verify_totp
 from .serializers import (
     UserSerializer, UserCreateSerializer, CustomTokenObtainPairSerializer,
     PasswordResetRequestSerializer, PasswordResetConfirmSerializer
 )
 from .permissions import IsAdminOrSelf, IsAdminUser
+from .throttling import LoginAnonThrottle, LoginUserThrottle, PasswordResetAnonThrottle
 
 User = get_user_model()
 
@@ -45,8 +47,8 @@ class UserViewSet(viewsets.ModelViewSet):
         return context
     
     def get_permissions(self):
-        # 'me' and 'me_update' actions should be accessible to any authenticated user
-        if self.action in ['me', 'me_update']:
+        # Profile & MFA actions are available to any authenticated user (self only).
+        if self.action in ['me', 'me_update', 'mfa_setup', 'mfa_verify', 'mfa_disable']:
             return [permissions.IsAuthenticated()]
         if self.action in ['list', 'retrieve', 'update', 'partial_update', 'destroy']:
             return [permissions.IsAuthenticated(), IsAdminOrSelf()]
@@ -66,17 +68,81 @@ class UserViewSet(viewsets.ModelViewSet):
         serializer.save()
         return Response(serializer.data)
 
+    @action(detail=False, methods=['post'])
+    def mfa_setup(self, request):
+        """
+        Start MFA setup for the current user.
+
+        Generates a new TOTP secret and returns it so the frontend can show a QR
+        code. MFA is not enabled until `mfa_verify` succeeds.
+        """
+        user = request.user
+        secret = generate_mfa_secret()
+        # Store secret but keep mfa_enabled disabled until verification.
+        user.mfa_secret = secret
+        user.mfa_enabled = False
+        user.save(update_fields=['mfa_secret', 'mfa_enabled'])
+        return Response(
+            {
+                'mfa_secret': secret,
+                'mfa_enabled': False,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+    @action(detail=False, methods=['post'])
+    def mfa_verify(self, request):
+        """
+        Verify an MFA code for the current user and enable MFA if valid.
+        """
+        user = request.user
+        code = str(request.data.get('mfa_code', '')).strip()
+        secret = getattr(user, 'mfa_secret', None)
+        if not secret:
+            return Response(
+                {'detail': 'MFA is not in setup state for this account.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if not code or not verify_totp(secret, code):
+            return Response(
+                {'mfa_code': ['Invalid or expired MFA code.']},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        user.mfa_enabled = True
+        user.save(update_fields=['mfa_enabled'])
+        return Response({'mfa_enabled': True}, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=['post'])
+    def mfa_disable(self, request):
+        """
+        Disable MFA for the current user and clear the secret.
+        """
+        user = request.user
+        user.mfa_secret = None
+        user.mfa_enabled = False
+        user.save(update_fields=['mfa_secret', 'mfa_enabled'])
+        return Response({'mfa_enabled': False}, status=status.HTTP_200_OK)
+
 
 class CustomTokenObtainPairView(TokenObtainPairView):
     """Custom token obtain view."""
     serializer_class = CustomTokenObtainPairSerializer
     permission_classes = [permissions.AllowAny]  # Explicitly allow unauthenticated access
+    throttle_classes = [LoginAnonThrottle, LoginUserThrottle]
 
 
 @api_view(['POST'])
 @permission_classes([permissions.AllowAny])
 def password_reset_request(request):
     """Request password reset - sends email with reset link."""
+    # Apply basic throttling to password reset requests
+    for throttle in [PasswordResetAnonThrottle()]:
+        if not throttle.allow_request(request, view=None):
+            return Response(
+                {'detail': 'Request was throttled. Please try again later.'},
+                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            )
+
     serializer = PasswordResetRequestSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
     
