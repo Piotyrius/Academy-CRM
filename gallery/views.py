@@ -2,6 +2,8 @@ from django.utils import timezone
 from django.db.models import Q
 from django.http import Http404
 from rest_framework import viewsets, permissions, decorators, response, status
+from academy_crm.google_drive import get_drive_service_or_none
+from storage.models import FileObject, FileOwnerType, FileActivity
 from .models import Work, WorkStatus
 from .serializers import WorkSerializer
 
@@ -36,7 +38,47 @@ class WorkViewSet(viewsets.ModelViewSet):
             raise Http404(f"No {model_name} matches the given query.")
 
     def perform_create(self, serializer):
-        serializer.save(owner=self.request.user)
+        request = self.request
+        user = request.user
+        file = request.FILES.get("media")
+
+        drive = get_drive_service_or_none()
+        if drive and file:
+            path_segments = ["academy-crm", "gallery", f"user-{user.id}"]
+            folder_id = drive.ensure_folder_path(path_segments)
+
+            uploaded = drive.upload_file(
+                name=file.name,
+                mime_type=file.content_type or "application/octet-stream",
+                content=file.file,
+                folder_id=folder_id,
+            )
+
+            file_obj = FileObject.objects.create(
+                organization=getattr(user, "organization", None),
+                owner_type=FileOwnerType.GALLERY_WORK,
+                owner_id=None,
+                drive_file_id=uploaded.file_id,
+                drive_folder_id=uploaded.folder_id,
+                logical_path="/".join(path_segments),
+                mime_type=uploaded.mime_type,
+                size=uploaded.size,
+                original_name=uploaded.name,
+                created_by=user,
+                visibility="PUBLIC" if serializer.validated_data.get("is_public") else "PRIVATE",
+            )
+            instance = serializer.save(owner=user, file_object=file_obj)
+            file_obj.owner_id = instance.id
+            file_obj.save(update_fields=["owner_id"])
+
+            FileActivity.objects.create(
+                file=file_obj,
+                user=user,
+                action="uploaded",
+                ip=request.META.get("REMOTE_ADDR"),
+            )
+        else:
+            serializer.save(owner=user)
 
     @decorators.action(detail=True, methods=['patch'], permission_classes=[permissions.IsAuthenticated])
     def publish(self, request, pk=None):

@@ -57,6 +57,7 @@ INSTALLED_APPS = [
     'timekeeping',
     'gallery',
     'payments',
+    'storage',
 ]
 
 MIDDLEWARE = [
@@ -271,6 +272,14 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 DEFAULT_FILE_STORAGE = 'django.core.files.storage.FileSystemStorage'
+
+# Google Drive integration
+USE_GOOGLE_DRIVE_STORAGE = os.getenv('USE_GOOGLE_DRIVE_STORAGE', 'False').lower() == 'true'
+GOOGLE_DRIVE_CLIENT_EMAIL = os.getenv('GOOGLE_DRIVE_CLIENT_EMAIL', '')
+GOOGLE_DRIVE_PRIVATE_KEY = os.getenv('GOOGLE_DRIVE_PRIVATE_KEY', '').replace('\\n', '\n')
+GOOGLE_DRIVE_PROJECT_ID = os.getenv('GOOGLE_DRIVE_PROJECT_ID', '')
+GOOGLE_DRIVE_ROOT_FOLDER_ID = os.getenv('GOOGLE_DRIVE_ROOT_FOLDER_ID', '')
+GOOGLE_DRIVE_ARCHIVE_ROOT_FOLDER_ID = os.getenv('GOOGLE_DRIVE_ARCHIVE_ROOT_FOLDER_ID', '')
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'

@@ -4,6 +4,7 @@ Models for student/lecturer works gallery.
 import uuid
 from django.db import models
 from django.utils.translation import gettext_lazy as _
+from storage.models import FileObject, FileOwnerType
 
 
 class WorkStatus(models.TextChoices):
@@ -24,7 +25,16 @@ class Work(models.Model):
     owner = models.ForeignKey('accounts.User', on_delete=models.CASCADE, related_name='works')
     title = models.CharField(max_length=200)
     description = models.TextField(blank=True)
-    media = models.FileField(upload_to='gallery/')
+    # Legacy media field; new uploads will use FileObject when Drive is enabled.
+    media = models.FileField(upload_to='gallery/', blank=True)
+    file_object = models.ForeignKey(
+        FileObject,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="gallery_works",
+        help_text=_("Backed file object in Google Drive or other storage"),
+    )
     status = models.CharField(max_length=10, choices=WorkStatus.choices, default=WorkStatus.DRAFT)
     is_public = models.BooleanField(default=False)
     published_at = models.DateTimeField(null=True, blank=True)

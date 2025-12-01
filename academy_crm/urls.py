@@ -64,6 +64,7 @@ urlpatterns = [
     path('api/v1/reporting/', include('reporting.urls')),
     path('api/v1/timekeeping/', include('timekeeping.urls')),
     path('api/v1/gallery/', include('gallery.urls')),
+    path('api/v1/', include('storage.urls')),
     path('api/v1/payments/', include('payments.urls')),
 ]
 

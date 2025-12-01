@@ -5,6 +5,7 @@ import uuid
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 from accounts.models import User
+from storage.models import FileObject, FileOwnerType
 
 
 class DocumentKind(models.TextChoices):
@@ -31,7 +32,17 @@ class Document(models.Model):
         choices=DocumentKind.choices,
         default=DocumentKind.OTHER
     )
-    file = models.FileField(upload_to='documents/')
+    # Legacy file field kept for backwards compatibility; new uploads will
+    # primarily use Google Drive via ``storage.FileObject`` when enabled.
+    file = models.FileField(upload_to='documents/', blank=True)
+    file_object = models.ForeignKey(
+        FileObject,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="documents",
+        help_text=_("Backed file object in Google Drive or other storage"),
+    )
     description = models.TextField(blank=True)
     visibility = models.CharField(
         max_length=20,

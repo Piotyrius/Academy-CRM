@@ -2,6 +2,7 @@
 Serializers for documents app.
 """
 from rest_framework import serializers
+from django.urls import reverse
 from .models import Document
 
 
@@ -16,9 +17,22 @@ class DocumentSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'created_at', 'updated_at']
     
     def get_file_url(self, obj):
-        """Get signed URL for file download."""
+        """
+        Get download URL for the backing file.
+
+        If Google Drive storage is enabled and a FileObject exists, return the
+        generic /files/<id>/download endpoint; otherwise fall back to the
+        legacy Django FileField URL.
+        """
+        request = self.context.get("request")
+        if not request:
+            return None
+
+        if getattr(obj, "file_object_id", None):
+            url = reverse("file-download", kwargs={"pk": obj.file_object_id})
+            return request.build_absolute_uri(url)
+
         if obj.file:
-            request = self.context.get('request')
-            if request:
-                return request.build_absolute_uri(obj.file.url)
+            return request.build_absolute_uri(obj.file.url)
+
         return None
