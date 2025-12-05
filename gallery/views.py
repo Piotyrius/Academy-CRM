@@ -2,6 +2,7 @@ from django.utils import timezone
 from django.db.models import Q
 from django.http import Http404
 from rest_framework import viewsets, permissions, decorators, response, status
+from rest_framework.exceptions import ValidationError, APIException
 from academy_crm.google_drive import get_drive_service_or_none
 from storage.models import FileObject, FileOwnerType, FileActivity
 from .models import Work, WorkStatus
@@ -38,12 +39,31 @@ class WorkViewSet(viewsets.ModelViewSet):
             raise Http404(f"No {model_name} matches the given query.")
 
     def perform_create(self, serializer):
+        """
+        Create gallery work with file upload to Google Drive.
+        Google Drive storage is required - no fallback to local storage.
+        """
         request = self.request
         user = request.user
         file = request.FILES.get("media")
 
+        # Validate that a file was provided
+        if not file:
+            raise ValidationError({
+                'media': 'A file must be uploaded for gallery works.'
+            })
+
+        # Validate that Google Drive is configured
         drive = get_drive_service_or_none()
-        if drive and file:
+        if not drive:
+            exc = APIException(
+                detail='Google Drive storage is required for file uploads. Please configure Google Drive integration.'
+            )
+            exc.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+            raise exc
+
+        # Upload file to Google Drive
+        try:
             path_segments = ["academy-crm", "gallery", f"user-{user.id}"]
             folder_id = drive.ensure_folder_path(path_segments)
 
@@ -77,8 +97,13 @@ class WorkViewSet(viewsets.ModelViewSet):
                 action="uploaded",
                 ip=request.META.get("REMOTE_ADDR"),
             )
-        else:
-            serializer.save(owner=user)
+        except Exception as e:
+            # If upload fails, raise exception
+            exc = APIException(
+                detail=f'Failed to upload file to Google Drive: {str(e)}'
+            )
+            exc.status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
+            raise exc
 
     @decorators.action(detail=True, methods=['patch'], permission_classes=[permissions.IsAuthenticated])
     def publish(self, request, pk=None):
