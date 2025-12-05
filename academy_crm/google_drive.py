@@ -182,6 +182,27 @@ class GoogleDriveService:
     def get_file_metadata(self, file_id: str, fields: str = "id, name, mimeType, size"):
         return self.client.files().get(fileId=file_id, fields=fields).execute()
 
+    def get_storage_quota(self) -> Optional[dict]:
+        """
+        Get storage quota information for the service account's Google Drive.
+        Returns dict with 'limit', 'usage', 'usageInDrive', 'usageInDriveTrash' in bytes,
+        or None if quota info is not available.
+        """
+        try:
+            about = self.client.about().get(fields="storageQuota").execute()
+            quota = about.get("storageQuota", {})
+            if quota:
+                return {
+                    "limit": int(quota.get("limit", 0)) if quota.get("limit") else None,
+                    "usage": int(quota.get("usage", 0)) if quota.get("usage") else 0,
+                    "usageInDrive": int(quota.get("usageInDrive", 0)) if quota.get("usageInDrive") else 0,
+                    "usageInDriveTrash": int(quota.get("usageInDriveTrash", 0)) if quota.get("usageInDriveTrash") else 0,
+                }
+            return None
+        except Exception as e:
+            logger.warning(f"Could not retrieve storage quota: {e}")
+            return None
+
 
 def get_drive_service_or_none() -> Optional[GoogleDriveService]:
     """

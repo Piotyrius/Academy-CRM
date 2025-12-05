@@ -151,6 +151,14 @@ class WorkViewSet(viewsets.ModelViewSet):
             error_reason = None
             error_message = str(e)
             
+            # Log the full error for debugging
+            logger.error(
+                f"Google Drive API error during gallery work upload: "
+                f"status={e.resp.status}, error={error_message}, "
+                f"error_details={getattr(e, 'error_details', None)}, "
+                f"user={user.id}, file_name={file_name}"
+            )
+            
             # Try to extract error reason from error_details
             if hasattr(e, 'error_details') and e.error_details:
                 for detail in e.error_details:
@@ -170,9 +178,37 @@ class WorkViewSet(viewsets.ModelViewSet):
             
             # Check for storage quota exceeded error
             if e.resp.status == 403 and error_reason == 'storageQuotaExceeded':
-                exc = APIException(
-                    detail='Storage quota exceeded. Please free up space in Google Drive or contact your administrator.'
+                # Try to get quota information for better error message
+                quota_info = None
+                try:
+                    quota_info = drive.get_storage_quota()
+                except Exception:
+                    pass  # Ignore quota check errors
+                
+                logger.warning(
+                    f"Storage quota exceeded for user {user.id} when uploading file {file_name} "
+                    f"(size: {file_size} bytes). Quota info: {quota_info}"
                 )
+                
+                # Build detailed error message
+                if quota_info and quota_info.get('limit'):
+                    limit_gb = quota_info['limit'] / (1024 ** 3)
+                    usage_gb = quota_info['usage'] / (1024 ** 3)
+                    detail = (
+                        f'Google Drive storage quota exceeded. '
+                        f'Service account storage: {usage_gb:.2f} GB / {limit_gb:.2f} GB used. '
+                        f'Please free up space in the service account\'s Google Drive or contact your administrator. '
+                        f'Note: The application uses a service account, not your personal Google Drive account.'
+                    )
+                else:
+                    detail = (
+                        'Google Drive storage quota exceeded for the service account. '
+                        'Please free up space in the service account\'s Google Drive or contact your administrator. '
+                        'Note: The application uses a Google Drive service account (configured via GOOGLE_DRIVE_CLIENT_EMAIL), '
+                        'which has its own storage quota separate from your personal Google Drive account.'
+                    )
+                
+                exc = APIException(detail=detail)
                 exc.status_code = status.HTTP_413_REQUEST_ENTITY_TOO_LARGE
                 raise exc
             
