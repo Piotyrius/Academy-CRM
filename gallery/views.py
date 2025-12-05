@@ -107,7 +107,8 @@ class WorkViewSet(viewsets.ModelViewSet):
 
         # Upload file to Google Drive
         try:
-            path_segments = ["academy-crm", "gallery", f"user-{user.id}"]
+            # Use "gallery" directly since root folder is already "academy-crm"
+            path_segments = ["gallery", f"user-{user.id}"]
             folder_id = drive.ensure_folder_path(path_segments)
 
             # Ensure file pointer is at the beginning

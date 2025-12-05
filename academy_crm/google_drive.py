@@ -116,28 +116,26 @@ class GoogleDriveService:
         Example path: ['academy-crm', 'gallery', 'user-123']
         """
         root_id = root_folder_id or settings.GOOGLE_DRIVE_ROOT_FOLDER_ID
-        
-        # Verify root folder is accessible
-        if not self.verify_folder_access(root_id):
-            raise RuntimeError(
-                f"Cannot access root folder {root_id}. "
-                f"Please ensure the folder is shared with the service account "
-                f"({settings.GOOGLE_DRIVE_CLIENT_EMAIL}) with 'Editor' permissions."
-            )
-        
         parent_id = root_id
+        
+        # Note: We skip strict folder verification because:
+        # 1. For personal Drive folders shared with service accounts, files().get() may fail
+        # 2. But files().create() and files().list() will work if properly shared
+        # 3. If access fails, it will be caught when we try to list/create folders with better error messages
 
         for segment in path_segments:
+            # Log which folder we're looking for
+            logger.debug(f"Looking for folder '{segment}' in parent folder {parent_id}")
             segment = segment.strip().replace("/", "_")
             if not segment:
                 continue
 
-            # Build query - use 'user' corpora for personal Drive, 'allDrives' for Shared Drives
-            # For personal Drive folders shared with service account, we need to search in user's drive
+            # Build query - escape single quotes in segment name to prevent injection
+            escaped_segment = segment.replace("'", "\\'")
             query_params = {
                 "q": (
                     f"mimeType = 'application/vnd.google-apps.folder' "
-                    f"and name = '{segment}' "
+                    f"and name = '{escaped_segment}' "
                     f"and '{parent_id}' in parents "
                     f"and trashed = false"
                 ),
@@ -146,7 +144,11 @@ class GoogleDriveService:
                 "pageSize": 1,
             }
             
-            # Try with user corpora first (for personal Drive), then fallback to allDrives (for Shared Drives)
+            # Try multiple query methods to find the folder
+            files = []
+            last_error = None
+            
+            # Method 1: Try with user corpora (for personal Drive)
             try:
                 response = (
                     self.client.files()
@@ -157,19 +159,60 @@ class GoogleDriveService:
                     )
                     .execute()
                 )
-            except Exception:
-                # Fallback to allDrives if user corpora doesn't work (for Shared Drives)
-                response = (
-                    self.client.files()
-                    .list(
-                        **query_params,
-                        corpora="allDrives",
-                        includeItemsFromAllDrives=True,
-                        supportsAllDrives=True,
+                files = response.get("files", [])
+                if files:
+                    logger.debug(f"Found folder '{segment}' using corpora='user'")
+            except Exception as e:
+                last_error = e
+                logger.debug(f"Query with corpora='user' failed: {e}")
+            
+            # Method 2: Try without corpora (default - searches all accessible files including shared)
+            if not files:
+                try:
+                    # Remove corpora restriction to search all accessible files
+                    response = (
+                        self.client.files()
+                        .list(
+                            q=query_params["q"],
+                            spaces="drive",
+                            fields="files(id, name)",
+                            pageSize=1,
+                        )
+                        .execute()
                     )
-                    .execute()
+                    files = response.get("files", [])
+                    if files:
+                        logger.debug(f"Found folder '{segment}' using default query (no corpora)")
+                except Exception as e:
+                    last_error = e
+                    logger.debug(f"Default query failed: {e}")
+            
+            # Method 3: Try with allDrives (for Shared Drives)
+            if not files:
+                try:
+                    response = (
+                        self.client.files()
+                        .list(
+                            **query_params,
+                            corpora="allDrives",
+                            includeItemsFromAllDrives=True,
+                            supportsAllDrives=True,
+                        )
+                        .execute()
+                    )
+                    files = response.get("files", [])
+                    if files:
+                        logger.debug(f"Found folder '{segment}' using corpora='allDrives'")
+                except Exception as e:
+                    last_error = e
+                    logger.debug(f"Query with corpora='allDrives' failed: {e}")
+            
+            # Log if we couldn't find the folder
+            if not files:
+                logger.warning(
+                    f"Could not find folder '{segment}' in parent {parent_id}. "
+                    f"Will create new folder. Last error: {last_error}"
                 )
-            files = response.get("files", [])
 
             if files:
                 parent_id = files[0]["id"]

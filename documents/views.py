@@ -60,7 +60,8 @@ class DocumentViewSet(viewsets.ModelViewSet):
         drive = get_drive_service_or_none()
         if drive and file:
             # Build logical path: academy-crm/documents/user-<id>
-            path_segments = ["academy-crm", "documents", f"user-{user.id}"]
+            # Use "documents" directly since root folder is already "academy-crm"
+            path_segments = ["documents", f"user-{user.id}"]
             try:
                 folder_id = drive.ensure_folder_path(path_segments)
 
