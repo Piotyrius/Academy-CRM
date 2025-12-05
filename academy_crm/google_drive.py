@@ -84,17 +84,27 @@ class GoogleDriveService:
         """
         Verify that the service account can access the given folder.
         Returns True if accessible, False otherwise.
+        Tries both personal Drive and Shared Drive access methods.
         """
+        # Try without supportsAllDrives first (for personal Drive folders)
         try:
             self.client.files().get(
                 fileId=folder_id,
                 fields="id, name",
-                supportsAllDrives=True,
             ).execute()
             return True
-        except Exception as e:
-            logger.warning(f"Cannot access folder {folder_id}: {e}")
-            return False
+        except Exception:
+            # Try with supportsAllDrives (for Shared Drives)
+            try:
+                self.client.files().get(
+                    fileId=folder_id,
+                    fields="id, name",
+                    supportsAllDrives=True,
+                ).execute()
+                return True
+            except Exception as e:
+                logger.warning(f"Cannot access folder {folder_id}: {e}")
+                return False
 
     # Folder helpers -----------------------------------------------------
     def ensure_folder_path(
@@ -122,25 +132,43 @@ class GoogleDriveService:
             if not segment:
                 continue
 
-            response = (
-                self.client.files()
-                .list(
-                    q=(
-                        f"mimeType = 'application/vnd.google-apps.folder' "
-                        f"and name = '{segment}' "
-                        f"and '{parent_id}' in parents "
-                        f"and trashed = false"
-                    ),
-                    spaces="drive",
-                    fields="files(id, name)",
-                    pageSize=1,
-                    # Include shared files and folders
-                    corpora="allDrives",
-                    includeItemsFromAllDrives=True,
-                    supportsAllDrives=True,
+            # Build query - use 'user' corpora for personal Drive, 'allDrives' for Shared Drives
+            # For personal Drive folders shared with service account, we need to search in user's drive
+            query_params = {
+                "q": (
+                    f"mimeType = 'application/vnd.google-apps.folder' "
+                    f"and name = '{segment}' "
+                    f"and '{parent_id}' in parents "
+                    f"and trashed = false"
+                ),
+                "spaces": "drive",
+                "fields": "files(id, name)",
+                "pageSize": 1,
+            }
+            
+            # Try with user corpora first (for personal Drive), then fallback to allDrives (for Shared Drives)
+            try:
+                response = (
+                    self.client.files()
+                    .list(
+                        **query_params,
+                        corpora="user",
+                        includeItemsFromAllDrives=False,
+                    )
+                    .execute()
                 )
-                .execute()
-            )
+            except Exception:
+                # Fallback to allDrives if user corpora doesn't work (for Shared Drives)
+                response = (
+                    self.client.files()
+                    .list(
+                        **query_params,
+                        corpora="allDrives",
+                        includeItemsFromAllDrives=True,
+                        supportsAllDrives=True,
+                    )
+                    .execute()
+                )
             files = response.get("files", [])
 
             if files:
@@ -174,18 +202,40 @@ class GoogleDriveService:
         content: io.BytesIO,
         folder_id: str,
     ) -> UploadedFileInfo:
+        # Ensure content is at the beginning
+        if hasattr(content, 'seek'):
+            content.seek(0)
+        
         media = MediaIoBaseUpload(content, mimetype=mime_type, resumable=False)
         metadata = {"name": name, "parents": [folder_id]}
-        file = (
-            self.client.files()
-            .create(
-                body=metadata,
-                media_body=media,
-                fields="id, name, mimeType, size",
-                supportsAllDrives=True,
+        
+        # Try with supportsAllDrives first (for Shared Drives), then without (for personal Drive)
+        try:
+            file = (
+                self.client.files()
+                .create(
+                    body=metadata,
+                    media_body=media,
+                    fields="id, name, mimeType, size",
+                    supportsAllDrives=True,
+                )
+                .execute()
             )
-            .execute()
-        )
+        except Exception as e:
+            # If that fails, try without supportsAllDrives (for personal Drive folders)
+            logger.debug(f"Upload with supportsAllDrives failed, trying without: {e}")
+            content.seek(0)  # Reset content pointer
+            media = MediaIoBaseUpload(content, mimetype=mime_type, resumable=False)
+            file = (
+                self.client.files()
+                .create(
+                    body=metadata,
+                    media_body=media,
+                    fields="id, name, mimeType, size",
+                )
+                .execute()
+            )
+        
         return UploadedFileInfo(
             file_id=file["id"],
             folder_id=folder_id,
