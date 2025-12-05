@@ -1,12 +1,16 @@
+import logging
 from django.utils import timezone
 from django.db.models import Q
 from django.http import Http404
 from rest_framework import viewsets, permissions, decorators, response, status
 from rest_framework.exceptions import ValidationError, APIException
+from googleapiclient.errors import HttpError
 from academy_crm.google_drive import get_drive_service_or_none
 from storage.models import FileObject, FileOwnerType, FileActivity
 from .models import Work, WorkStatus
 from .serializers import WorkSerializer
+
+logger = logging.getLogger(__name__)
 
 
 class IsAdmin(permissions.BasePermission):
@@ -45,12 +49,51 @@ class WorkViewSet(viewsets.ModelViewSet):
         """
         request = self.request
         user = request.user
+        
+        # Log what files are being sent from frontend
+        logger.info(
+            f"Gallery work upload request from user {user.id}: "
+            f"FILES keys: {list(request.FILES.keys())}, "
+            f"DATA keys: {list(request.data.keys())}"
+        )
+        
         file = request.FILES.get("media")
 
         # Validate that a file was provided
         if not file:
+            # Check if frontend sent file with different field name
+            available_files = list(request.FILES.keys())
+            if available_files:
+                logger.warning(
+                    f"File uploaded with wrong field name. Expected 'media', got: {available_files}"
+                )
+                raise ValidationError({
+                    'media': f'A file must be uploaded with field name "media". Received files with names: {", ".join(available_files)}'
+                })
             raise ValidationError({
                 'media': 'A file must be uploaded for gallery works.'
+            })
+        
+        # Validate file object
+        if not hasattr(file, 'name') or not hasattr(file, 'size'):
+            logger.error(f"Invalid file object received: {type(file)}, attributes: {dir(file)}")
+            raise ValidationError({
+                'media': 'Invalid file object received. Please ensure you are uploading a valid file.'
+            })
+        
+        # Log file details for debugging
+        file_size = getattr(file, 'size', None)
+        file_name = getattr(file, 'name', 'unknown')
+        file_content_type = getattr(file, 'content_type', 'unknown')
+        logger.info(
+            f"Uploading file: name={file_name}, size={file_size}, "
+            f"content_type={file_content_type}, user={user.id}"
+        )
+        
+        # Validate file size (optional - you can set a max size)
+        if file_size and file_size > 100 * 1024 * 1024:  # 100MB limit
+            raise ValidationError({
+                'media': f'File size ({file_size / 1024 / 1024:.2f}MB) exceeds maximum allowed size (100MB).'
             })
 
         # Validate that Google Drive is configured
@@ -66,6 +109,12 @@ class WorkViewSet(viewsets.ModelViewSet):
         try:
             path_segments = ["academy-crm", "gallery", f"user-{user.id}"]
             folder_id = drive.ensure_folder_path(path_segments)
+
+            # Ensure file pointer is at the beginning
+            if hasattr(file, 'seek'):
+                file.seek(0)
+            elif hasattr(file, 'file') and hasattr(file.file, 'seek'):
+                file.file.seek(0)
 
             uploaded = drive.upload_file(
                 name=file.name,
@@ -97,8 +146,49 @@ class WorkViewSet(viewsets.ModelViewSet):
                 action="uploaded",
                 ip=request.META.get("REMOTE_ADDR"),
             )
+        except HttpError as e:
+            # Handle Google Drive API errors specifically
+            error_reason = None
+            error_message = str(e)
+            
+            # Try to extract error reason from error_details
+            if hasattr(e, 'error_details') and e.error_details:
+                for detail in e.error_details:
+                    if isinstance(detail, dict):
+                        if 'reason' in detail:
+                            error_reason = detail.get('reason')
+                            break
+                        # Also check for nested error objects
+                        if 'error' in detail and isinstance(detail['error'], dict):
+                            if 'reason' in detail['error']:
+                                error_reason = detail['error'].get('reason')
+                                break
+            
+            # Also check error message for storage quota exceeded
+            if 'storageQuotaExceeded' in error_message.lower():
+                error_reason = 'storageQuotaExceeded'
+            
+            # Check for storage quota exceeded error
+            if e.resp.status == 403 and error_reason == 'storageQuotaExceeded':
+                exc = APIException(
+                    detail='Storage quota exceeded. Please free up space in Google Drive or contact your administrator.'
+                )
+                exc.status_code = status.HTTP_413_REQUEST_ENTITY_TOO_LARGE
+                raise exc
+            
+            # Handle other HTTP errors
+            exc = APIException(
+                detail=f'Failed to upload file to Google Drive: {str(e)}'
+            )
+            if e.resp.status == 403:
+                exc.status_code = status.HTTP_403_FORBIDDEN
+            elif e.resp.status == 413:
+                exc.status_code = status.HTTP_413_REQUEST_ENTITY_TOO_LARGE
+            else:
+                exc.status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
+            raise exc
         except Exception as e:
-            # If upload fails, raise exception
+            # If upload fails with other errors, raise exception
             exc = APIException(
                 detail=f'Failed to upload file to Google Drive: {str(e)}'
             )
