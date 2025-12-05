@@ -177,6 +177,23 @@ class WorkViewSet(viewsets.ModelViewSet):
             if 'storageQuotaExceeded' in error_message.lower():
                 error_reason = 'storageQuotaExceeded'
             
+            # Check for service account storage quota limitation
+            if 'Service Accounts do not have storage quota' in error_message:
+                logger.error(
+                    f"Service account cannot upload to personal Drive folder. "
+                    f"Service accounts can only upload to Shared Drives (Google Workspace) or use OAuth delegation."
+                )
+                exc = APIException(
+                    detail=(
+                        'Service accounts cannot upload files to personal Google Drive folders. '
+                        'You must either: (1) Use a Shared Drive (Google Workspace), or '
+                        '(2) Use OAuth delegation to impersonate a user account. '
+                        'Please contact your administrator to set up a Shared Drive or configure OAuth delegation.'
+                    )
+                )
+                exc.status_code = status.HTTP_413_REQUEST_ENTITY_TOO_LARGE
+                raise exc
+            
             # Check for storage quota exceeded error
             if e.resp.status == 403 and error_reason == 'storageQuotaExceeded':
                 # Try to get quota information for better error message

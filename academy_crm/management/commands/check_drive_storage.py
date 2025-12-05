@@ -46,9 +46,35 @@ class Command(BaseCommand):
         self.stdout.write(f'   Link: {root_folder_link}')
         self.stdout.write('')
 
-        # Try to get storage quota
+        # Try to get storage quota and test folder access
         drive = get_drive_service_or_none()
         if drive:
+            # Test if we can access the root folder
+            self.stdout.write('')
+            self.stdout.write('🔍 Testing Root Folder Access:')
+            try:
+                contents = drive.list_folder_contents(root_folder_id)
+                if contents:
+                    self.stdout.write(self.style.SUCCESS(f'   ✅ Successfully accessed root folder!'))
+                    self.stdout.write(f'   Found {len(contents)} items:')
+                    for item in contents[:10]:  # Show first 10 items
+                        item_type = "📁 Folder" if item.get("mimeType") == "application/vnd.google-apps.folder" else "📄 File"
+                        self.stdout.write(f'      {item_type}: {item.get("name")} (ID: {item.get("id")})')
+                    if len(contents) > 10:
+                        self.stdout.write(f'      ... and {len(contents) - 10} more items')
+                else:
+                    self.stdout.write(self.style.WARNING('   ⚠️  Root folder is accessible but appears empty'))
+            except Exception as e:
+                self.stdout.write(self.style.ERROR(f'   ❌ Cannot access root folder: {e}'))
+                self.stdout.write('')
+                self.stdout.write('   This means the service account cannot see the folder.')
+                self.stdout.write('   Please ensure:')
+                self.stdout.write(f'   1. The folder is shared with: {service_account_email}')
+                self.stdout.write('   2. The service account has "Editor" or "Owner" permissions')
+                self.stdout.write('   3. The folder ID is correct')
+            
+            self.stdout.write('')
+            self.stdout.write('📊 Storage Quota:')
             self.stdout.write('📊 Storage Quota:')
             try:
                 quota = drive.get_storage_quota()

@@ -105,6 +105,42 @@ class GoogleDriveService:
             except Exception as e:
                 logger.warning(f"Cannot access folder {folder_id}: {e}")
                 return False
+    
+    def list_folder_contents(self, folder_id: str) -> list:
+        """
+        List all files and folders in a given folder.
+        Useful for debugging access issues.
+        """
+        results = []
+        try:
+            # Try multiple query methods
+            query_methods = [
+                {"corpora": "user", "includeItemsFromAllDrives": False},
+                {},  # Default (no corpora)
+                {"corpora": "allDrives", "includeItemsFromAllDrives": True, "supportsAllDrives": True},
+            ]
+            
+            for method_params in query_methods:
+                try:
+                    response = self.client.files().list(
+                        q=f"'{folder_id}' in parents and trashed = false",
+                        spaces="drive",
+                        fields="files(id, name, mimeType)",
+                        pageSize=10,
+                        **method_params
+                    ).execute()
+                    files = response.get("files", [])
+                    if files:
+                        results = files
+                        logger.info(f"Successfully listed {len(files)} items in folder {folder_id} using {method_params}")
+                        break
+                except Exception as e:
+                    logger.debug(f"List query with {method_params} failed: {e}")
+                    continue
+        except Exception as e:
+            logger.error(f"Failed to list folder contents for {folder_id}: {e}")
+        
+        return results
 
     # Folder helpers -----------------------------------------------------
     def ensure_folder_path(
@@ -118,10 +154,20 @@ class GoogleDriveService:
         root_id = root_folder_id or settings.GOOGLE_DRIVE_ROOT_FOLDER_ID
         parent_id = root_id
         
-        # Note: We skip strict folder verification because:
-        # 1. For personal Drive folders shared with service accounts, files().get() may fail
-        # 2. But files().create() and files().list() will work if properly shared
-        # 3. If access fails, it will be caught when we try to list/create folders with better error messages
+        # Try to verify we can at least list contents of root folder
+        try:
+            root_contents = self.list_folder_contents(root_id)
+            if root_contents:
+                logger.info(f"Successfully accessed root folder {root_id}, found {len(root_contents)} items")
+            else:
+                logger.warning(f"Root folder {root_id} is accessible but appears empty")
+        except Exception as e:
+            logger.error(
+                f"Cannot access root folder {root_id}. "
+                f"Please ensure the folder is shared with service account "
+                f"({settings.GOOGLE_DRIVE_CLIENT_EMAIL}) with 'Editor' permissions. Error: {e}"
+            )
+            # Don't fail here - let the actual operations fail with better error messages
 
         for segment in path_segments:
             # Log which folder we're looking for
@@ -246,20 +292,36 @@ class GoogleDriveService:
                 parent_id = files[0]["id"]
                 continue
 
+            # Create folder - try without supportsAllDrives first (for personal Drive)
             file_metadata = {
                 "name": segment,
                 "mimeType": "application/vnd.google-apps.folder",
                 "parents": [parent_id],
             }
-            created = (
-                self.client.files()
-                .create(
-                    body=file_metadata,
-                    fields="id, name",
-                    supportsAllDrives=True,
+            try:
+                created = (
+                    self.client.files()
+                    .create(
+                        body=file_metadata,
+                        fields="id, name",
+                    )
+                    .execute()
                 )
-                .execute()
-            )
+                logger.info(f"Created folder '{segment}' (ID: {created['id']}) in parent {parent_id}")
+            except Exception as e:
+                # If that fails, try with supportsAllDrives (for Shared Drives)
+                logger.debug(f"Folder creation without supportsAllDrives failed: {e}, trying with it")
+                created = (
+                    self.client.files()
+                    .create(
+                        body=file_metadata,
+                        fields="id, name",
+                        supportsAllDrives=True,
+                    )
+                    .execute()
+                )
+                logger.info(f"Created folder '{segment}' (ID: {created['id']}) in parent {parent_id} with supportsAllDrives")
+            
             parent_id = created["id"]
 
         return parent_id
