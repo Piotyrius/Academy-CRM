@@ -170,6 +170,7 @@ class GoogleDriveService:
             if not files:
                 try:
                     # Remove corpora restriction to search all accessible files
+                    # This works for personal Drive folders shared with service accounts
                     response = (
                         self.client.files()
                         .list(
@@ -186,6 +187,33 @@ class GoogleDriveService:
                 except Exception as e:
                     last_error = e
                     logger.debug(f"Default query failed: {e}")
+            
+            # Method 2.5: Try searching in shared files explicitly
+            if not files:
+                try:
+                    # Search for files shared with the service account
+                    response = (
+                        self.client.files()
+                        .list(
+                            q=(
+                                f"mimeType = 'application/vnd.google-apps.folder' "
+                                f"and name = '{escaped_segment}' "
+                                f"and '{parent_id}' in parents "
+                                f"and trashed = false "
+                                f"and sharedWithMe = true"
+                            ),
+                            spaces="drive",
+                            fields="files(id, name)",
+                            pageSize=1,
+                        )
+                        .execute()
+                    )
+                    files = response.get("files", [])
+                    if files:
+                        logger.debug(f"Found folder '{segment}' using sharedWithMe query")
+                except Exception as e:
+                    last_error = e
+                    logger.debug(f"sharedWithMe query failed: {e}")
             
             # Method 3: Try with allDrives (for Shared Drives)
             if not files:
