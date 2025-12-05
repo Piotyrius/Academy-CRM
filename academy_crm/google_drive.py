@@ -23,7 +23,10 @@ from googleapiclient.http import MediaIoBaseUpload, MediaIoBaseDownload
 logger = logging.getLogger(__name__)
 
 
-GOOGLE_DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.file"
+# Use drive scope (not drive.file) to access shared folders
+# drive.file only allows access to files created by the service account
+# drive allows access to all files the service account can access (including shared)
+GOOGLE_DRIVE_SCOPE = "https://www.googleapis.com/auth/drive"
 
 
 def is_drive_enabled() -> bool:
@@ -77,6 +80,22 @@ class GoogleDriveService:
             raise RuntimeError("Google Drive storage is not enabled.")
         self.client = _build_drive_client()
 
+    def verify_folder_access(self, folder_id: str) -> bool:
+        """
+        Verify that the service account can access the given folder.
+        Returns True if accessible, False otherwise.
+        """
+        try:
+            self.client.files().get(
+                fileId=folder_id,
+                fields="id, name",
+                supportsAllDrives=True,
+            ).execute()
+            return True
+        except Exception as e:
+            logger.warning(f"Cannot access folder {folder_id}: {e}")
+            return False
+
     # Folder helpers -----------------------------------------------------
     def ensure_folder_path(
         self, path_segments: Iterable[str], root_folder_id: Optional[str] = None
@@ -87,6 +106,15 @@ class GoogleDriveService:
         Example path: ['academy-crm', 'gallery', 'user-123']
         """
         root_id = root_folder_id or settings.GOOGLE_DRIVE_ROOT_FOLDER_ID
+        
+        # Verify root folder is accessible
+        if not self.verify_folder_access(root_id):
+            raise RuntimeError(
+                f"Cannot access root folder {root_id}. "
+                f"Please ensure the folder is shared with the service account "
+                f"({settings.GOOGLE_DRIVE_CLIENT_EMAIL}) with 'Editor' permissions."
+            )
+        
         parent_id = root_id
 
         for segment in path_segments:
@@ -106,6 +134,10 @@ class GoogleDriveService:
                     spaces="drive",
                     fields="files(id, name)",
                     pageSize=1,
+                    # Include shared files and folders
+                    corpora="allDrives",
+                    includeItemsFromAllDrives=True,
+                    supportsAllDrives=True,
                 )
                 .execute()
             )
@@ -122,7 +154,11 @@ class GoogleDriveService:
             }
             created = (
                 self.client.files()
-                .create(body=file_metadata, fields="id, name")
+                .create(
+                    body=file_metadata,
+                    fields="id, name",
+                    supportsAllDrives=True,
+                )
                 .execute()
             )
             parent_id = created["id"]
@@ -142,7 +178,12 @@ class GoogleDriveService:
         metadata = {"name": name, "parents": [folder_id]}
         file = (
             self.client.files()
-            .create(body=metadata, media_body=media, fields="id, name, mimeType, size")
+            .create(
+                body=metadata,
+                media_body=media,
+                fields="id, name, mimeType, size",
+                supportsAllDrives=True,
+            )
             .execute()
         )
         return UploadedFileInfo(

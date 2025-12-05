@@ -127,3 +127,4 @@ class Command(BaseCommand):
         self.stdout.write('💡 TIP: The easiest way is Method 1 - share the root folder')
         self.stdout.write('        with your personal account so you can access it directly.')
         self.stdout.write('')
+
