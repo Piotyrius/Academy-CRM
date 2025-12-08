@@ -213,3 +213,13 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
         if '.' not in value:
             raise serializers.ValidationError('Invalid token format.')
         return value
+
+
+class TokenBlacklistRequestSerializer(serializers.Serializer):
+    """Serializer for token blacklist request (logout)."""
+    refresh = serializers.CharField(required=True, help_text="Refresh token to blacklist")
+
+
+class TokenBlacklistResponseSerializer(serializers.Serializer):
+    """Serializer for token blacklist response."""
+    detail = serializers.CharField(help_text="Success message")

@@ -19,7 +19,8 @@ from django.conf import settings
 from .mfa import generate_mfa_secret, verify_totp
 from .serializers import (
     UserSerializer, UserCreateSerializer, CustomTokenObtainPairSerializer,
-    PasswordResetRequestSerializer, PasswordResetConfirmSerializer
+    PasswordResetRequestSerializer, PasswordResetConfirmSerializer,
+    TokenBlacklistRequestSerializer, TokenBlacklistResponseSerializer
 )
 from .permissions import IsAdminOrSelf, IsAdminUser
 from .throttling import LoginAnonThrottle, LoginUserThrottle, PasswordResetAnonThrottle, LogoutThrottle
@@ -136,24 +137,23 @@ class CustomTokenObtainPairView(TokenObtainPairView):
     throttle_classes = [LoginAnonThrottle, LoginUserThrottle]
 
 
+@extend_schema(
+    request=TokenBlacklistRequestSerializer,
+    responses={
+        200: TokenBlacklistResponseSerializer,
+        400: OpenApiTypes.OBJECT,
+    },
+    tags=['Authentication'],
+    summary="Logout user",
+    description=(
+        "Accepts a refresh token and blacklists it, effectively logging out the user. "
+        "The refresh token can no longer be used to obtain new access tokens."
+    ),
+)
 class CustomTokenBlacklistView(TokenBlacklistView):
     """Custom token blacklist view for logout."""
     permission_classes = [permissions.AllowAny]  # Allow authenticated users to logout
     throttle_classes = [LogoutThrottle]
-
-    @extend_schema(
-        request={'application/json': {'type': 'object', 'properties': {'refresh': {'type': 'string'}}}},
-        responses={200: OpenApiTypes.OBJECT, 400: OpenApiTypes.OBJECT},
-        tags=['Authentication'],
-        summary="Logout user",
-        description=(
-            "Accepts a refresh token and blacklists it, effectively logging out the user. "
-            "The refresh token can no longer be used to obtain new access tokens."
-        ),
-    )
-    def post(self, request, *args, **kwargs):
-        """Blacklist the refresh token."""
-        return super().post(request, *args, **kwargs)
 
 
 @api_view(['GET'])
