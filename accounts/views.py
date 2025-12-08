@@ -130,7 +130,7 @@ class UserViewSet(viewsets.ModelViewSet):
 
 
 @extend_schema(
-    tags=['Authentication'],
+    tags=['Auth'],
     summary="Login",
     description="Obtain JWT access and refresh tokens by providing email and password.",
 )
@@ -147,7 +147,7 @@ class CustomTokenObtainPairView(TokenObtainPairView):
         200: TokenBlacklistResponseSerializer,
         400: OpenApiTypes.OBJECT,
     },
-    tags=['Authentication'],
+    tags=['Auth'],
     summary="Logout user",
     description=(
         "Accepts a refresh token and blacklists it, effectively logging out the user. "
@@ -173,7 +173,7 @@ class CustomTokenBlacklistView(TokenBlacklistView):
         },
         401: OpenApiTypes.OBJECT,
     },
-    tags=['Authentication'],
+    tags=['Auth'],
     summary="Verify access token",
     description=(
         "Verifies if the provided access token in the Authorization header is valid and not expired. "
@@ -224,7 +224,7 @@ def verify_token(request):
 @extend_schema(
     request=PasswordResetRequestSerializer,
     responses={200: OpenApiTypes.OBJECT},
-    tags=['Authentication'],
+    tags=['Auth'],
     summary="Request password reset email",
     description=(
         "Accepts an email address and, if an account exists, sends a password "
@@ -300,7 +300,7 @@ def password_reset_request(request):
 @extend_schema(
     request=PasswordResetConfirmSerializer,
     responses={200: OpenApiTypes.OBJECT, 400: OpenApiTypes.OBJECT},
-    tags=['Authentication'],
+    tags=['Auth'],
     summary="Confirm password reset",
     description=(
         "Accepts a token (uid.token) and a new password. If the token is valid,"

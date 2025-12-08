@@ -467,7 +467,7 @@ SPECTACULAR_SETTINGS = {
     'SECURITY': [{'BearerAuth': []}],  # Default security for all endpoints - only JWT
     # Tags for better organization
     'TAGS': [
-        {'name': 'Authentication', 'description': 'User authentication endpoints'},
+        {'name': 'Auth', 'description': 'User authentication endpoints'},
         {'name': 'Users', 'description': 'User management'},
         {'name': 'Catalog', 'description': 'Programs and courses'},
         {'name': 'Admissions', 'description': 'Student admissions'},

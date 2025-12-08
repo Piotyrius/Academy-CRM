@@ -67,7 +67,7 @@ class CustomSpectacularAPIView(SpectacularAPIView):
                     "paths": {
                         "/api/v1/auth/login/": {
                             "post": {
-                                "tags": ["Authentication"],
+                                "tags": ["Auth"],
                                 "summary": "Login",
                                 "description": "Obtain JWT token",
                                 "requestBody": {
