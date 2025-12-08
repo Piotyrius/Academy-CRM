@@ -331,6 +331,7 @@ REST_FRAMEWORK = {
         'login_anon': '10/minute',
         'login_user': '30/minute',
         'password_reset_anon': '5/minute',
+        'logout': '30/minute',
     },
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }

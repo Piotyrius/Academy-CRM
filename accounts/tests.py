@@ -4,6 +4,7 @@ Comprehensive tests for accounts app.
 import pytest
 from django.contrib.auth import get_user_model
 from rest_framework import status
+from rest_framework_simplejwt.token_blacklist.models import OutstandingToken, BlacklistedToken
 from accounts.models import Role
 
 User = get_user_model()
@@ -186,3 +187,136 @@ class TestUserManagementAPI:
         response = authenticated_admin_client.delete(f'/api/v1/users/{user.id}/')
         assert response.status_code == status.HTTP_204_NO_CONTENT
         assert not User.objects.filter(id=user.id).exists()
+
+
+@pytest.mark.django_db
+class TestLogoutAPI:
+    """Test logout endpoint."""
+    
+    def test_logout_success(self, api_client, student_user):
+        """Test successful logout blacklists refresh token."""
+        # First login to get tokens
+        login_response = api_client.post('/api/v1/auth/login/', {
+            'email': 'student@test.com',
+            'password': 'testpass123'
+        })
+        assert login_response.status_code == status.HTTP_200_OK
+        refresh_token = login_response.data['refresh']
+        
+        # Verify token exists before logout
+        outstanding_tokens = OutstandingToken.objects.filter(user=student_user)
+        assert outstanding_tokens.exists()
+        
+        # Logout
+        logout_response = api_client.post('/api/v1/auth/logout/', {
+            'refresh': refresh_token
+        })
+        assert logout_response.status_code == status.HTTP_200_OK
+        
+        # Verify token is blacklisted
+        outstanding_token = outstanding_tokens.first()
+        assert BlacklistedToken.objects.filter(token=outstanding_token).exists()
+    
+    def test_logout_invalid_token(self, api_client):
+        """Test logout with invalid refresh token."""
+        response = api_client.post('/api/v1/auth/logout/', {
+            'refresh': 'invalid_token'
+        })
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+    
+    def test_logout_missing_token(self, api_client):
+        """Test logout without refresh token."""
+        response = api_client.post('/api/v1/auth/logout/', {})
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+    
+    def test_logout_blacklisted_token(self, api_client, student_user):
+        """Test logout with already blacklisted token."""
+        # Login first
+        login_response = api_client.post('/api/v1/auth/login/', {
+            'email': 'student@test.com',
+            'password': 'testpass123'
+        })
+        refresh_token = login_response.data['refresh']
+        
+        # Logout once
+        api_client.post('/api/v1/auth/logout/', {'refresh': refresh_token})
+        
+        # Try to logout again with same token
+        response = api_client.post('/api/v1/auth/logout/', {
+            'refresh': refresh_token
+        })
+        # Should return 400 or 401 depending on implementation
+        assert response.status_code in [status.HTTP_400_BAD_REQUEST, status.HTTP_401_UNAUTHORIZED]
+
+
+@pytest.mark.django_db
+class TestTokenVerificationAPI:
+    """Test token verification endpoint."""
+    
+    def test_verify_valid_token(self, api_client, student_user):
+        """Test verifying a valid access token."""
+        # Login to get access token
+        login_response = api_client.post('/api/v1/auth/login/', {
+            'email': 'student@test.com',
+            'password': 'testpass123'
+        })
+        access_token = login_response.data['access']
+        
+        # Verify token
+        response = api_client.get(
+            '/api/v1/auth/verify/',
+            HTTP_AUTHORIZATION=f'Bearer {access_token}'
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['valid'] is True
+        assert 'user' in response.data
+        assert response.data['user']['email'] == student_user.email
+    
+    def test_verify_invalid_token(self, api_client):
+        """Test verifying an invalid access token."""
+        response = api_client.get(
+            '/api/v1/auth/verify/',
+            HTTP_AUTHORIZATION='Bearer invalid_token'
+        )
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+        assert response.data['valid'] is False
+    
+    def test_verify_missing_token(self, api_client):
+        """Test verify without Authorization header."""
+        response = api_client.get('/api/v1/auth/verify/')
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+        assert response.data['valid'] is False
+    
+    def test_verify_expired_token(self, api_client, student_user):
+        """Test verifying an expired token."""
+        # This test would require manipulating token expiration
+        # For now, we'll test with invalid format
+        response = api_client.get(
+            '/api/v1/auth/verify/',
+            HTTP_AUTHORIZATION='Bearer expired.token.here'
+        )
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+        assert response.data['valid'] is False
+    
+    def test_verify_token_after_logout(self, api_client, student_user):
+        """Test that access token still works after logout (access tokens can't be blacklisted)."""
+        # Login
+        login_response = api_client.post('/api/v1/auth/login/', {
+            'email': 'student@test.com',
+            'password': 'testpass123'
+        })
+        access_token = login_response.data['access']
+        refresh_token = login_response.data['refresh']
+        
+        # Logout (blacklists refresh token)
+        api_client.post('/api/v1/auth/logout/', {'refresh': refresh_token})
+        
+        # Access token should still be valid (access tokens can't be blacklisted)
+        # This is expected behavior - access tokens expire naturally after 20 minutes
+        response = api_client.get(
+            '/api/v1/auth/verify/',
+            HTTP_AUTHORIZATION=f'Bearer {access_token}'
+        )
+        # Token should still be valid since access tokens aren't blacklisted
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['valid'] is True

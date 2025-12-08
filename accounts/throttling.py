@@ -13,4 +13,8 @@ class PasswordResetAnonThrottle(AnonRateThrottle):
     scope = 'password_reset_anon'
 
 
+class LogoutThrottle(UserRateThrottle):
+    scope = 'logout'
+
+
 

@@ -5,6 +5,9 @@ from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework_simplejwt.views import TokenObtainPairView
+from rest_framework_simplejwt.token_blacklist.views import TokenBlacklistView
+from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from drf_spectacular.utils import extend_schema
 from drf_spectacular.types import OpenApiTypes
 from django.contrib.auth import get_user_model
@@ -19,7 +22,7 @@ from .serializers import (
     PasswordResetRequestSerializer, PasswordResetConfirmSerializer
 )
 from .permissions import IsAdminOrSelf, IsAdminUser
-from .throttling import LoginAnonThrottle, LoginUserThrottle, PasswordResetAnonThrottle
+from .throttling import LoginAnonThrottle, LoginUserThrottle, PasswordResetAnonThrottle, LogoutThrottle
 
 User = get_user_model()
 
@@ -131,6 +134,85 @@ class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
     permission_classes = [permissions.AllowAny]  # Explicitly allow unauthenticated access
     throttle_classes = [LoginAnonThrottle, LoginUserThrottle]
+
+
+class CustomTokenBlacklistView(TokenBlacklistView):
+    """Custom token blacklist view for logout."""
+    permission_classes = [permissions.AllowAny]  # Allow authenticated users to logout
+    throttle_classes = [LogoutThrottle]
+
+    @extend_schema(
+        request={'application/json': {'type': 'object', 'properties': {'refresh': {'type': 'string'}}}},
+        responses={200: OpenApiTypes.OBJECT, 400: OpenApiTypes.OBJECT},
+        tags=['Authentication'],
+        summary="Logout user",
+        description=(
+            "Accepts a refresh token and blacklists it, effectively logging out the user. "
+            "The refresh token can no longer be used to obtain new access tokens."
+        ),
+    )
+    def post(self, request, *args, **kwargs):
+        """Blacklist the refresh token."""
+        return super().post(request, *args, **kwargs)
+
+
+@api_view(['GET'])
+@permission_classes([permissions.AllowAny])
+@extend_schema(
+    responses={
+        200: {
+            'type': 'object',
+            'properties': {
+                'valid': {'type': 'boolean'},
+                'user': {'type': 'object'},
+            }
+        },
+        401: OpenApiTypes.OBJECT,
+    },
+    tags=['Authentication'],
+    summary="Verify access token",
+    description=(
+        "Verifies if the provided access token in the Authorization header is valid and not expired. "
+        "Returns user information if the token is valid. Useful for frontend to check authentication state."
+    ),
+)
+def verify_token(request):
+    """Verify access token validity and return user info if valid."""
+    auth_header = request.META.get('HTTP_AUTHORIZATION', '')
+    
+    if not auth_header.startswith('Bearer '):
+        return Response(
+            {'valid': False, 'detail': 'No valid token provided.'},
+            status=status.HTTP_401_UNAUTHORIZED
+        )
+    
+    try:
+        # Extract token from header
+        token = auth_header.split(' ')[1]
+        
+        # Use JWT authentication to validate token
+        jwt_auth = JWTAuthentication()
+        validated_token = jwt_auth.get_validated_token(token)
+        user = jwt_auth.get_user(validated_token)
+        
+        # Serialize user data
+        user_serializer = UserSerializer(user)
+        
+        return Response({
+            'valid': True,
+            'user': user_serializer.data,
+        }, status=status.HTTP_200_OK)
+        
+    except (InvalidToken, TokenError) as e:
+        return Response(
+            {'valid': False, 'detail': 'Invalid or expired token.'},
+            status=status.HTTP_401_UNAUTHORIZED
+        )
+    except Exception as e:
+        return Response(
+            {'valid': False, 'detail': 'Token verification failed.'},
+            status=status.HTTP_401_UNAUTHORIZED
+        )
 
 
 @api_view(['POST'])
