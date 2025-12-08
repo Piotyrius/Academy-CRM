@@ -4,7 +4,7 @@ Views for accounts app.
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
-from rest_framework_simplejwt.views import TokenObtainPairView, TokenBlacklistView
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenBlacklistView, TokenRefreshView
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from drf_spectacular.utils import extend_schema
@@ -139,6 +139,16 @@ class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
     permission_classes = [permissions.AllowAny]  # Explicitly allow unauthenticated access
     throttle_classes = [LoginAnonThrottle, LoginUserThrottle]
+
+
+@extend_schema(
+    tags=['Auth'],
+    summary="Refresh token",
+    description="Obtain a new access token using a valid refresh token.",
+)
+class CustomTokenRefreshView(TokenRefreshView):
+    """Custom token refresh view with proper Swagger tag."""
+    pass
 
 
 @extend_schema(
