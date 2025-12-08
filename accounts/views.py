@@ -129,6 +129,11 @@ class UserViewSet(viewsets.ModelViewSet):
         return Response({'mfa_enabled': False}, status=status.HTTP_200_OK)
 
 
+@extend_schema(
+    tags=['Authentication'],
+    summary="Login",
+    description="Obtain JWT access and refresh tokens by providing email and password.",
+)
 class CustomTokenObtainPairView(TokenObtainPairView):
     """Custom token obtain view."""
     serializer_class = CustomTokenObtainPairSerializer
