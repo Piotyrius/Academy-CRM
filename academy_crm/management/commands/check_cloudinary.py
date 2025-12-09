@@ -171,9 +171,11 @@ class Command(BaseCommand):
         
         try:
             # Pass the full public_id - move_file will extract folder and filename
+            # Important: Use resource_type="raw" since we uploaded as raw
             moved = cloudinary_service.move_file(
                 public_id=test_public_id,
-                to_folder="test/archive"
+                to_folder="test/archive",
+                resource_type="raw"
             )
             
             if moved:

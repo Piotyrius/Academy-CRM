@@ -49,9 +49,12 @@ class FileViewSet(viewsets.ReadOnlyModelViewSet):
         # Move file to archive folder
         if obj.cloudinary_public_id and not obj.is_archived:
             # Move to archive folder (move_file will extract folder from public_id)
+            # Use the resource_type from the file object
+            resource_type = obj.cloudinary_resource_type or "image"
             moved = cloudinary_service.move_file(
                 public_id=obj.cloudinary_public_id,
-                to_folder="archive"
+                to_folder="archive",
+                resource_type=resource_type
             )
             
             if moved:
@@ -65,7 +68,7 @@ class FileViewSet(viewsets.ReadOnlyModelViewSet):
                 obj.cloudinary_public_id = f"archive/{file_name}"
                 obj.cloudinary_url = cloudinary_service.get_file_url(
                     obj.cloudinary_public_id,
-                    resource_type=obj.cloudinary_resource_type or "image"
+                    resource_type=resource_type
                 )
                 obj.save(update_fields=["is_archived", "deleted_at", "deleted_by", "cloudinary_folder", "cloudinary_public_id", "cloudinary_url"])
 
@@ -148,10 +151,13 @@ class ArchiveViewSet(viewsets.ReadOnlyModelViewSet):
                 else:
                     original_folder = obj.cloudinary_public_id.rsplit('/', 1)[0]
             
+            # Use the resource_type from the file object
+            resource_type = obj.cloudinary_resource_type or "image"
             # Move from archive to original folder
             moved = cloudinary_service.move_file(
                 public_id=obj.cloudinary_public_id,
-                to_folder=original_folder
+                to_folder=original_folder,
+                resource_type=resource_type
             )
             
             if moved:
@@ -162,7 +168,7 @@ class ArchiveViewSet(viewsets.ReadOnlyModelViewSet):
                 obj.cloudinary_public_id = f"{original_folder}/{file_name}"
                 obj.cloudinary_url = cloudinary_service.get_file_url(
                     obj.cloudinary_public_id,
-                    resource_type=obj.cloudinary_resource_type or "image"
+                    resource_type=resource_type
                 )
 
         obj.is_archived = False

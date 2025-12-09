@@ -198,7 +198,7 @@ class CloudinaryService:
             logger.error(f"Cloudinary URL generation failed for {public_id}: {e}")
             raise
 
-    def move_file(self, public_id: str, from_folder: str = None, to_folder: str = None) -> bool:
+    def move_file(self, public_id: str, from_folder: str = None, to_folder: str = None, resource_type: str = "image") -> bool:
         """
         Move a file from one folder to another in Cloudinary.
 
@@ -206,6 +206,7 @@ class CloudinaryService:
             public_id: Public ID of the file (can include folder prefix or just filename)
             from_folder: Current folder path (optional, extracted from public_id if not provided)
             to_folder: Target folder path
+            resource_type: Type of resource (image, video, raw) - must match the uploaded resource type
 
         Returns:
             True if moved successfully
@@ -234,6 +235,7 @@ class CloudinaryService:
             result = cloudinary.uploader.rename(
                 old_public_id,
                 new_public_id,
+                resource_type=resource_type,
                 overwrite=True,
                 invalidate=True
             )
