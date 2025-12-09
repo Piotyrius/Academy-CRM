@@ -239,7 +239,9 @@ class CloudinaryService:
                 overwrite=True,
                 invalidate=True
             )
-            return result.get("result") == "ok"
+            # rename() returns file metadata on success, not {"result": "ok"}
+            # Check if public_id exists and matches the new location
+            return result and result.get("public_id") == new_public_id
         except Exception as e:
             logger.error(f"Cloudinary move failed for {public_id}: {e}")
             return False

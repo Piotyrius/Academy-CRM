@@ -191,14 +191,18 @@ class Command(BaseCommand):
                     invalidate=True
                 )
                 
-                if result.get("result") == "ok":
+                # rename() returns file metadata on success, not {"result": "ok"}
+                # Check if public_id exists and matches the new location
+                if result and result.get("public_id") == new_public_id:
                     self.stdout.write(self.style.SUCCESS('✅ File moved successfully'))
                     self.stdout.write(f'   From: {old_public_id}')
                     self.stdout.write(f'   To: {new_public_id}')
+                    self.stdout.write(f'   New URL: {result.get("secure_url", result.get("url", ""))}')
                     # Update public_id for cleanup
                     test_public_id = new_public_id
                 else:
-                    self.stdout.write(self.style.ERROR(f'❌ File move failed: {result}'))
+                    self.stdout.write(self.style.ERROR(f'❌ File move failed: Unexpected response format'))
+                    self.stdout.write(self.style.ERROR(f'   Response: {result}'))
             except Exception as api_error:
                 error_msg = str(api_error)
                 error_type = type(api_error).__name__
