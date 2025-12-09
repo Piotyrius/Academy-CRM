@@ -170,17 +170,17 @@ class Command(BaseCommand):
         self.stdout.write('-' * 60)
         
         try:
-            # Extract filename from public_id
-            file_name = test_public_id.split('/')[-1]
+            # Pass the full public_id - move_file will extract folder and filename
             moved = cloudinary_service.move_file(
-                public_id=file_name,
-                from_folder="test",
+                public_id=test_public_id,
                 to_folder="test/archive"
             )
             
             if moved:
+                # Extract filename for display
+                file_name = test_public_id.split('/')[-1]
                 self.stdout.write(self.style.SUCCESS('✅ File moved successfully'))
-                self.stdout.write(f'   From: test/{file_name}')
+                self.stdout.write(f'   From: {test_public_id}')
                 self.stdout.write(f'   To: test/archive/{file_name}')
                 # Update public_id for cleanup
                 test_public_id = f"test/archive/{file_name}"

@@ -48,31 +48,26 @@ class FileViewSet(viewsets.ReadOnlyModelViewSet):
 
         # Move file to archive folder
         if obj.cloudinary_public_id and not obj.is_archived:
-            # Extract public_id without folder prefix
-            public_id_parts = obj.cloudinary_public_id.split('/')
-            file_name = public_id_parts[-1]
-            
-            # Get current folder
-            current_folder = obj.cloudinary_folder or obj.logical_path
-            
-            # Move to archive folder
-            cloudinary_service.move_file(
-                public_id=file_name,
-                from_folder=current_folder,
+            # Move to archive folder (move_file will extract folder from public_id)
+            moved = cloudinary_service.move_file(
+                public_id=obj.cloudinary_public_id,
                 to_folder="archive"
             )
             
-            # Update FileObject
-            obj.is_archived = True
-            obj.deleted_at = timezone.now()
-            obj.deleted_by = request.user if request.user.is_authenticated else None
-            obj.cloudinary_folder = "archive"
-            obj.cloudinary_public_id = f"archive/{file_name}"
-            obj.cloudinary_url = cloudinary_service.get_file_url(
-                obj.cloudinary_public_id,
-                resource_type=obj.cloudinary_resource_type or "image"
-            )
-            obj.save(update_fields=["is_archived", "deleted_at", "deleted_by", "cloudinary_folder", "cloudinary_public_id", "cloudinary_url"])
+            if moved:
+                # Extract filename
+                file_name = obj.cloudinary_public_id.split('/')[-1]
+                # Update FileObject
+                obj.is_archived = True
+                obj.deleted_at = timezone.now()
+                obj.deleted_by = request.user if request.user.is_authenticated else None
+                obj.cloudinary_folder = "archive"
+                obj.cloudinary_public_id = f"archive/{file_name}"
+                obj.cloudinary_url = cloudinary_service.get_file_url(
+                    obj.cloudinary_public_id,
+                    resource_type=obj.cloudinary_resource_type or "image"
+                )
+                obj.save(update_fields=["is_archived", "deleted_at", "deleted_by", "cloudinary_folder", "cloudinary_public_id", "cloudinary_url"])
 
             FileActivity.objects.create(
                 file=obj,
@@ -140,31 +135,35 @@ class ArchiveViewSet(viewsets.ReadOnlyModelViewSet):
             )
 
         # Move file back from archive folder to original folder
-        if obj.cloudinary_public_id and obj.cloudinary_folder:
-            # Extract public_id without folder prefix
-            public_id_parts = obj.cloudinary_public_id.split('/')
-            file_name = public_id_parts[-1]
-            
+        if obj.cloudinary_public_id:
             # Get original folder from logical_path or cloudinary_folder
             original_folder = obj.logical_path or obj.cloudinary_folder
             # Remove 'archive/' prefix if present
-            if original_folder.startswith('archive/'):
+            if original_folder and original_folder.startswith('archive/'):
                 original_folder = original_folder.replace('archive/', '', 1)
+            elif not original_folder:
+                # Extract from public_id if it's in archive
+                if obj.cloudinary_public_id.startswith('archive/'):
+                    original_folder = obj.cloudinary_public_id.replace('archive/', '', 1).rsplit('/', 1)[0]
+                else:
+                    original_folder = obj.cloudinary_public_id.rsplit('/', 1)[0]
             
             # Move from archive to original folder
-            cloudinary_service.move_file(
-                public_id=file_name,
-                from_folder="archive",
+            moved = cloudinary_service.move_file(
+                public_id=obj.cloudinary_public_id,
                 to_folder=original_folder
             )
             
-            # Update FileObject with new folder and URL
-            obj.cloudinary_folder = original_folder
-            obj.cloudinary_public_id = f"{original_folder}/{file_name}"
-            obj.cloudinary_url = cloudinary_service.get_file_url(
-                obj.cloudinary_public_id,
-                resource_type=obj.cloudinary_resource_type or "image"
-            )
+            if moved:
+                # Extract filename
+                file_name = obj.cloudinary_public_id.split('/')[-1]
+                # Update FileObject with new folder and URL
+                obj.cloudinary_folder = original_folder
+                obj.cloudinary_public_id = f"{original_folder}/{file_name}"
+                obj.cloudinary_url = cloudinary_service.get_file_url(
+                    obj.cloudinary_public_id,
+                    resource_type=obj.cloudinary_resource_type or "image"
+                )
 
         obj.is_archived = False
         obj.deleted_at = None

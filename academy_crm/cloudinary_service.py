@@ -198,22 +198,38 @@ class CloudinaryService:
             logger.error(f"Cloudinary URL generation failed for {public_id}: {e}")
             raise
 
-    def move_file(self, public_id: str, from_folder: str, to_folder: str) -> bool:
+    def move_file(self, public_id: str, from_folder: str = None, to_folder: str = None) -> bool:
         """
         Move a file from one folder to another in Cloudinary.
 
         Args:
-            public_id: Public ID of the file (without folder prefix)
-            from_folder: Current folder path
+            public_id: Public ID of the file (can include folder prefix or just filename)
+            from_folder: Current folder path (optional, extracted from public_id if not provided)
             to_folder: Target folder path
 
         Returns:
             True if moved successfully
         """
         try:
-            # Cloudinary uses rename to move files between folders
-            old_public_id = f"{from_folder}/{public_id}" if from_folder else public_id
-            new_public_id = f"{to_folder}/{public_id}" if to_folder else public_id
+            # If public_id already includes folder, extract it
+            if '/' in public_id:
+                parts = public_id.split('/')
+                filename = parts[-1]
+                if from_folder is None:
+                    from_folder = '/'.join(parts[:-1])
+            else:
+                filename = public_id
+            
+            # Build old and new public IDs
+            if from_folder:
+                old_public_id = f"{from_folder}/{filename}"
+            else:
+                old_public_id = filename
+            
+            if to_folder:
+                new_public_id = f"{to_folder}/{filename}"
+            else:
+                new_public_id = filename
 
             result = cloudinary.uploader.rename(
                 old_public_id,
