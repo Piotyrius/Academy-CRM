@@ -9,6 +9,7 @@ from django.core.management.base import BaseCommand
 from django.core.files.uploadedfile import SimpleUploadedFile
 from academy_crm.cloudinary_service import get_cloudinary_service_or_none, is_cloudinary_enabled
 from io import BytesIO
+import cloudinary.uploader
 
 
 class Command(BaseCommand):
@@ -172,24 +173,50 @@ class Command(BaseCommand):
         try:
             # Pass the full public_id - move_file will extract folder and filename
             # Important: Use resource_type="raw" since we uploaded as raw
-            moved = cloudinary_service.move_file(
-                public_id=test_public_id,
-                to_folder="test/archive",
-                resource_type="raw"
-            )
+            # Try to call Cloudinary API directly to get detailed error
             
-            if moved:
-                # Extract filename for display
-                file_name = test_public_id.split('/')[-1]
-                self.stdout.write(self.style.SUCCESS('✅ File moved successfully'))
-                self.stdout.write(f'   From: {test_public_id}')
-                self.stdout.write(f'   To: test/archive/{file_name}')
-                # Update public_id for cleanup
-                test_public_id = f"test/archive/{file_name}"
-            else:
-                self.stdout.write(self.style.ERROR('❌ File move failed'))
+            # Extract folder and filename for display
+            file_name = test_public_id.split('/')[-1]
+            old_public_id = test_public_id
+            new_public_id = f"test/archive/{file_name}"
+            
+            self.stdout.write(f'   Attempting to move: {old_public_id} -> {new_public_id}')
+            
+            try:
+                result = cloudinary.uploader.rename(
+                    old_public_id,
+                    new_public_id,
+                    resource_type="raw",
+                    overwrite=True,
+                    invalidate=True
+                )
+                
+                if result.get("result") == "ok":
+                    self.stdout.write(self.style.SUCCESS('✅ File moved successfully'))
+                    self.stdout.write(f'   From: {old_public_id}')
+                    self.stdout.write(f'   To: {new_public_id}')
+                    # Update public_id for cleanup
+                    test_public_id = new_public_id
+                else:
+                    self.stdout.write(self.style.ERROR(f'❌ File move failed: {result}'))
+            except Exception as api_error:
+                error_msg = str(api_error)
+                error_type = type(api_error).__name__
+                self.stdout.write(self.style.ERROR(f'❌ File move failed'))
+                self.stdout.write(self.style.ERROR(f'   Error Type: {error_type}'))
+                self.stdout.write(self.style.ERROR(f'   Error Message: {error_msg}'))
+                
+                # Check if it's a permission/authorization error
+                if 'not found' in error_msg.lower() or '404' in error_msg.lower():
+                    self.stdout.write(self.style.WARNING('   💡 Hint: File might not exist or resource_type mismatch'))
+                elif 'unauthorized' in error_msg.lower() or '403' in error_msg.lower() or 'permission' in error_msg.lower():
+                    self.stdout.write(self.style.WARNING('   💡 Hint: Cloudinary account might not allow renaming/moving files'))
+                    self.stdout.write(self.style.WARNING('   💡 Check your Cloudinary account settings and API permissions'))
+                elif 'invalid' in error_msg.lower():
+                    self.stdout.write(self.style.WARNING('   💡 Hint: Check if the public_id format is correct'))
+                    
         except Exception as e:
-            self.stdout.write(self.style.ERROR(f'❌ Move failed: {e}'))
+            self.stdout.write(self.style.ERROR(f'❌ Move test failed: {e}'))
         self.stdout.write('')
 
         # Test 7: Cleanup (if requested)
@@ -227,3 +254,4 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS('=' * 60))
         self.stdout.write(self.style.SUCCESS('✅ All tests completed!'))
         self.stdout.write(self.style.SUCCESS('=' * 60))
+
