@@ -29,9 +29,8 @@ qrcode[pil]==8.0
 django-storages==1.14.3
 whitenoise==6.8.2  # Static file serving (used in all environments)
 
-# Google Drive integration
-google-api-python-client==2.154.0
-google-auth==2.36.0
+# Cloudinary integration
+cloudinary==1.41.0
 
 # Database
 psycopg2-binary==2.9.10

@@ -24,16 +24,17 @@ class WorkSerializer(serializers.ModelSerializer):
 
     def get_media_url(self, obj):
         """
-        Get download URL for the file from Google Drive.
-        Only returns URL if file_object exists (stored in Drive).
+        Get URL for the file from Cloudinary.
+        Returns Cloudinary URL directly if file_object exists.
         Returns None for legacy records with only local media (no file_object).
         """
-        request = self.context.get("request")
-        if not request:
-            return None
+        # Return Cloudinary URL directly if available
+        if getattr(obj, "file_object", None) and obj.file_object.cloudinary_url:
+            return obj.file_object.cloudinary_url
 
-        # Only return URL if file is stored in Google Drive
-        if getattr(obj, "file_object_id", None):
+        # Fallback to download endpoint for legacy files
+        request = self.context.get("request")
+        if request and getattr(obj, "file_object_id", None):
             url = reverse("file-download", kwargs={"pk": obj.file_object_id})
             return request.build_absolute_uri(url)
 

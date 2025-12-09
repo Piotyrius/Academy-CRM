@@ -11,15 +11,37 @@ from .mfa import verify_totp
 class UserSerializer(serializers.ModelSerializer):
     """Serializer for User model."""
     role_display = serializers.CharField(source='get_role_display', read_only=True)
+    profile_picture_url = serializers.SerializerMethodField()
     
     class Meta:
         model = User
         fields = [
             'id', 'email', 'first_name', 'last_name', 'phone',
             'role', 'role_display', 'is_active', 'mfa_enabled',
+            'profile_picture', 'profile_picture_url',
             'date_joined', 'last_login'
         ]
-        read_only_fields = ['id', 'date_joined', 'last_login']
+        read_only_fields = ['id', 'date_joined', 'last_login', 'profile_picture']
+    
+    def get_profile_picture_url(self, obj):
+        """Get Cloudinary URL for profile picture with 50x50 transformation."""
+        if not obj.profile_picture:
+            return None
+        
+        try:
+            from academy_crm.cloudinary_service import get_cloudinary_service_or_none
+            cloudinary_service = get_cloudinary_service_or_none()
+            if cloudinary_service:
+                # Return URL with 50x50 transformation
+                return cloudinary_service.get_file_url(
+                    obj.profile_picture,
+                    transformation="w_50,h_50,c_fill,g_face",
+                    resource_type="image"
+                )
+        except Exception:
+            pass
+        
+        return None
     
     def validate_role(self, value):
         """Prevent users from changing their own role (unless admin)."""

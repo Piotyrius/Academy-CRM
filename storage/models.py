@@ -13,7 +13,7 @@ class FileOwnerType(models.TextChoices):
 
 class FileObject(models.Model):
     """
-    Generic file record that points to a Google Drive file (or other backends).
+    Generic file record that points to a Cloudinary file (or other backends).
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -35,12 +35,23 @@ class FileObject(models.Model):
         blank=True,
         help_text=_("ID of the related object (e.g. document, gallery work)"),
     )
-    drive_file_id = models.CharField(max_length=255, db_index=True)
-    drive_folder_id = models.CharField(max_length=255, blank=True)
+    # Legacy Google Drive fields (kept for migration compatibility)
+    drive_file_id = models.CharField(max_length=255, db_index=True, blank=True, null=True)
+    drive_folder_id = models.CharField(max_length=255, blank=True, null=True)
+    # Cloudinary fields
+    cloudinary_public_id = models.CharField(max_length=512, db_index=True, blank=True)
+    cloudinary_folder = models.CharField(max_length=512, blank=True, help_text=_("Cloudinary folder path"))
+    cloudinary_url = models.CharField(max_length=1024, blank=True, help_text=_("Direct URL to the file"))
+    cloudinary_resource_type = models.CharField(
+        max_length=20,
+        blank=True,
+        default="image",
+        help_text=_("Resource type: image, video, or raw")
+    )
     logical_path = models.CharField(
         max_length=512,
         blank=True,
-        help_text=_("Logical path inside Drive, e.g. academy-crm/gallery/user-123"),
+        help_text=_("Logical path inside storage, e.g. gallery/user-123"),
     )
     mime_type = models.CharField(max_length=255, blank=True)
     size = models.BigIntegerField(null=True, blank=True)
@@ -82,7 +93,8 @@ class FileObject(models.Model):
         ]
 
     def __str__(self) -> str:  # pragma: no cover - trivial
-        return f"{self.original_name} ({self.drive_file_id})"
+        identifier = self.cloudinary_public_id or self.drive_file_id or "unknown"
+        return f"{self.original_name} ({identifier})"
 
 
 class FileActivity(models.Model):
@@ -124,6 +136,7 @@ class FileActivity(models.Model):
 
     def __str__(self) -> str:  # pragma: no cover - trivial
         return f"{self.action} {self.file_id} by {self.user_id}"
+
 
 
 

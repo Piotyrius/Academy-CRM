@@ -100,6 +100,14 @@ class User(AbstractUser):
         help_text=_('Organization this user belongs to')
     )
     
+    # Profile picture stored in Cloudinary
+    profile_picture = models.CharField(
+        max_length=512,
+        blank=True,
+        null=True,
+        help_text=_('Cloudinary public_id for profile picture')
+    )
+    
     # Override username to use email
     username = None
     

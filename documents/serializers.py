@@ -20,14 +20,18 @@ class DocumentSerializer(serializers.ModelSerializer):
         """
         Get download URL for the backing file.
 
-        If Google Drive storage is enabled and a FileObject exists, return the
-        generic /files/<id>/download endpoint; otherwise fall back to the
-        legacy Django FileField URL.
+        If Cloudinary storage is enabled and a FileObject exists, return the
+        Cloudinary URL directly; otherwise fall back to the legacy Django FileField URL.
         """
+        # Return Cloudinary URL directly if available
+        if getattr(obj, "file_object", None) and obj.file_object.cloudinary_url:
+            return obj.file_object.cloudinary_url
+
         request = self.context.get("request")
         if not request:
             return None
 
+        # Fallback to download endpoint for legacy files
         if getattr(obj, "file_object_id", None):
             url = reverse("file-download", kwargs={"pk": obj.file_object_id})
             return request.build_absolute_uri(url)

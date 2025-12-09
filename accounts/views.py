@@ -53,7 +53,7 @@ class UserViewSet(viewsets.ModelViewSet):
     
     def get_permissions(self):
         # Profile & MFA actions are available to any authenticated user (self only).
-        if self.action in ['me', 'me_update', 'mfa_setup', 'mfa_verify', 'mfa_disable']:
+        if self.action in ['me', 'me_update', 'mfa_setup', 'mfa_verify', 'mfa_disable', 'upload_profile_picture']:
             return [permissions.IsAuthenticated()]
         if self.action in ['list', 'retrieve', 'update', 'partial_update', 'destroy']:
             return [permissions.IsAuthenticated(), IsAdminOrSelf()]
@@ -127,6 +127,86 @@ class UserViewSet(viewsets.ModelViewSet):
         user.mfa_enabled = False
         user.save(update_fields=['mfa_secret', 'mfa_enabled'])
         return Response({'mfa_enabled': False}, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=['post'])
+    def upload_profile_picture(self, request):
+        """
+        Upload profile picture for the current user.
+        Accepts an image file and uploads it to Cloudinary.
+        """
+        from academy_crm.cloudinary_service import get_cloudinary_service_or_none
+        from rest_framework.exceptions import APIException
+        
+        user = request.user
+        file = request.FILES.get('profile_picture')
+        
+        if not file:
+            return Response(
+                {'detail': 'No file provided. Please upload an image file.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Validate file type (images only)
+        if not file.content_type or not file.content_type.startswith('image/'):
+            return Response(
+                {'detail': 'Invalid file type. Please upload an image file.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Validate file size (max 5MB)
+        if file.size > 5 * 1024 * 1024:
+            return Response(
+                {'detail': 'File size exceeds maximum allowed size (5MB).'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        cloudinary_service = get_cloudinary_service_or_none()
+        if not cloudinary_service:
+            return Response(
+                {'detail': 'Cloudinary is not configured.'},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE
+            )
+        
+        try:
+            # Ensure file pointer is at the beginning
+            if hasattr(file, 'seek'):
+                file.seek(0)
+            elif hasattr(file, 'file') and hasattr(file.file, 'seek'):
+                file.file.seek(0)
+            
+            # Upload to Cloudinary in profile-pictures folder
+            folder = "profile-pictures"
+            public_id = str(user.id)  # Use user ID as public_id
+            
+            uploaded = cloudinary_service.upload_file(
+                file_content=file.file if hasattr(file, 'file') else file,
+                folder=folder,
+                public_id=public_id,
+                resource_type="image",
+                overwrite=True,  # Overwrite existing profile picture
+            )
+            
+            # Update user profile picture
+            user.profile_picture = uploaded.public_id
+            user.save(update_fields=['profile_picture'])
+            
+            # Return the URL with transformation
+            profile_url = cloudinary_service.get_file_url(
+                uploaded.public_id,
+                transformation="w_50,h_50,c_fill,g_face",
+                resource_type="image"
+            )
+            
+            return Response({
+                'profile_picture': uploaded.public_id,
+                'profile_picture_url': profile_url
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            return Response(
+                {'detail': f'Failed to upload profile picture: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
 @extend_schema(

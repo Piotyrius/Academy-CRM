@@ -4,8 +4,7 @@ from django.db.models import Q
 from django.http import Http404
 from rest_framework import viewsets, permissions, decorators, response, status
 from rest_framework.exceptions import ValidationError, APIException
-from googleapiclient.errors import HttpError
-from academy_crm.google_drive import get_drive_service_or_none
+from academy_crm.cloudinary_service import get_cloudinary_service_or_none
 from storage.models import FileObject, FileOwnerType, FileActivity
 from .models import Work, WorkStatus
 from .serializers import WorkSerializer
@@ -44,8 +43,8 @@ class WorkViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         """
-        Create gallery work with file upload to Google Drive.
-        Google Drive storage is required - no fallback to local storage.
+        Create gallery work with file upload to Cloudinary.
+        Cloudinary storage is required - no fallback to local storage.
         """
         request = self.request
         user = request.user
@@ -96,44 +95,42 @@ class WorkViewSet(viewsets.ModelViewSet):
                 'media': f'File size ({file_size / 1024 / 1024:.2f}MB) exceeds maximum allowed size (100MB).'
             })
 
-        # Validate that Google Drive is configured
-        drive = get_drive_service_or_none()
-        if not drive:
+        # Validate that Cloudinary is configured
+        cloudinary_service = get_cloudinary_service_or_none()
+        if not cloudinary_service:
             exc = APIException(
-                detail='Google Drive storage is required for file uploads. Please configure Google Drive integration.'
+                detail='Cloudinary storage is required for file uploads. Please configure Cloudinary integration.'
             )
             exc.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
             raise exc
 
-        # Upload file to Google Drive
+        # Upload file to Cloudinary
         try:
-            # Use "gallery" directly since root folder is already "academy-crm"
-            path_segments = ["gallery", f"user-{user.id}"]
-            folder_id = drive.ensure_folder_path(path_segments)
-
             # Ensure file pointer is at the beginning
             if hasattr(file, 'seek'):
                 file.seek(0)
             elif hasattr(file, 'file') and hasattr(file.file, 'seek'):
                 file.file.seek(0)
 
-            uploaded = drive.upload_file(
-                name=file.name,
-                mime_type=file.content_type or "application/octet-stream",
-                content=file.file,
-                folder_id=folder_id,
+            folder = f"gallery/user-{user.id}"
+            uploaded = cloudinary_service.upload_file(
+                file_content=file.file if hasattr(file, 'file') else file,
+                folder=folder,
+                resource_type="auto",
             )
 
             file_obj = FileObject.objects.create(
                 organization=getattr(user, "organization", None),
                 owner_type=FileOwnerType.GALLERY_WORK,
                 owner_id=None,
-                drive_file_id=uploaded.file_id,
-                drive_folder_id=uploaded.folder_id,
-                logical_path="/".join(path_segments),
-                mime_type=uploaded.mime_type,
-                size=uploaded.size,
-                original_name=uploaded.name,
+                cloudinary_public_id=uploaded.public_id,
+                cloudinary_folder=uploaded.folder,
+                cloudinary_url=uploaded.secure_url,
+                cloudinary_resource_type=uploaded.resource_type,
+                logical_path=folder,
+                mime_type=file_content_type,
+                size=uploaded.bytes,
+                original_name=file_name,
                 created_by=user,
                 visibility="PUBLIC" if serializer.validated_data.get("is_public") else "PRIVATE",
             )
@@ -147,104 +144,14 @@ class WorkViewSet(viewsets.ModelViewSet):
                 action="uploaded",
                 ip=request.META.get("REMOTE_ADDR"),
             )
-        except HttpError as e:
-            # Handle Google Drive API errors specifically
-            error_reason = None
-            error_message = str(e)
-            
-            # Log the full error for debugging
-            logger.error(
-                f"Google Drive API error during gallery work upload: "
-                f"status={e.resp.status}, error={error_message}, "
-                f"error_details={getattr(e, 'error_details', None)}, "
-                f"user={user.id}, file_name={file_name}"
-            )
-            
-            # Try to extract error reason from error_details
-            if hasattr(e, 'error_details') and e.error_details:
-                for detail in e.error_details:
-                    if isinstance(detail, dict):
-                        if 'reason' in detail:
-                            error_reason = detail.get('reason')
-                            break
-                        # Also check for nested error objects
-                        if 'error' in detail and isinstance(detail['error'], dict):
-                            if 'reason' in detail['error']:
-                                error_reason = detail['error'].get('reason')
-                                break
-            
-            # Also check error message for storage quota exceeded
-            if 'storageQuotaExceeded' in error_message.lower():
-                error_reason = 'storageQuotaExceeded'
-            
-            # Check for service account storage quota limitation
-            if 'Service Accounts do not have storage quota' in error_message:
-                logger.error(
-                    f"Service account cannot upload to personal Drive folder. "
-                    f"Service accounts can only upload to Shared Drives (Google Workspace) or use OAuth delegation."
-                )
-                exc = APIException(
-                    detail=(
-                        'Service accounts cannot upload files to personal Google Drive folders. '
-                        'You must either: (1) Use a Shared Drive (Google Workspace), or '
-                        '(2) Use OAuth delegation to impersonate a user account. '
-                        'Please contact your administrator to set up a Shared Drive or configure OAuth delegation.'
-                    )
-                )
-                exc.status_code = status.HTTP_413_REQUEST_ENTITY_TOO_LARGE
-                raise exc
-            
-            # Check for storage quota exceeded error
-            if e.resp.status == 403 and error_reason == 'storageQuotaExceeded':
-                # Try to get quota information for better error message
-                quota_info = None
-                try:
-                    quota_info = drive.get_storage_quota()
-                except Exception:
-                    pass  # Ignore quota check errors
-                
-                logger.warning(
-                    f"Storage quota exceeded for user {user.id} when uploading file {file_name} "
-                    f"(size: {file_size} bytes). Quota info: {quota_info}"
-                )
-                
-                # Build detailed error message
-                if quota_info and quota_info.get('limit'):
-                    limit_gb = quota_info['limit'] / (1024 ** 3)
-                    usage_gb = quota_info['usage'] / (1024 ** 3)
-                    detail = (
-                        f'Google Drive storage quota exceeded. '
-                        f'Service account storage: {usage_gb:.2f} GB / {limit_gb:.2f} GB used. '
-                        f'Please free up space in the service account\'s Google Drive or contact your administrator. '
-                        f'Note: The application uses a service account, not your personal Google Drive account.'
-                    )
-                else:
-                    detail = (
-                        'Google Drive storage quota exceeded for the service account. '
-                        'Please free up space in the service account\'s Google Drive or contact your administrator. '
-                        'Note: The application uses a Google Drive service account (configured via GOOGLE_DRIVE_CLIENT_EMAIL), '
-                        'which has its own storage quota separate from your personal Google Drive account.'
-                    )
-                
-                exc = APIException(detail=detail)
-                exc.status_code = status.HTTP_413_REQUEST_ENTITY_TOO_LARGE
-                raise exc
-            
-            # Handle other HTTP errors
-            exc = APIException(
-                detail=f'Failed to upload file to Google Drive: {str(e)}'
-            )
-            if e.resp.status == 403:
-                exc.status_code = status.HTTP_403_FORBIDDEN
-            elif e.resp.status == 413:
-                exc.status_code = status.HTTP_413_REQUEST_ENTITY_TOO_LARGE
-            else:
-                exc.status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
-            raise exc
         except Exception as e:
-            # If upload fails with other errors, raise exception
+            # If upload fails, raise exception
+            logger.error(
+                f"Cloudinary upload error during gallery work upload: "
+                f"error={str(e)}, user={user.id}, file_name={file_name}"
+            )
             exc = APIException(
-                detail=f'Failed to upload file to Google Drive: {str(e)}'
+                detail=f'Failed to upload file to Cloudinary: {str(e)}'
             )
             exc.status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
             raise exc

@@ -6,8 +6,7 @@ from django.utils import timezone
 from rest_framework import viewsets, permissions, status
 from rest_framework.exceptions import APIException
 from django.http import Http404
-from googleapiclient.errors import HttpError
-from academy_crm.google_drive import get_drive_service_or_none
+from academy_crm.cloudinary_service import get_cloudinary_service_or_none
 from storage.models import FileObject, FileOwnerType, FileActivity
 from .models import Document
 from .serializers import DocumentSerializer
@@ -50,38 +49,41 @@ class DocumentViewSet(viewsets.ModelViewSet):
     
     def perform_create(self, serializer):
         """
-        Set owner to current user and, when Drive is enabled, upload the
-        attached file to Google Drive and create a FileObject record.
+        Set owner to current user and upload the attached file to Cloudinary
+        and create a FileObject record.
         """
         request = self.request
         file = request.FILES.get("file")
         user = request.user
 
-        drive = get_drive_service_or_none()
-        if drive and file:
-            # Build logical path: academy-crm/documents/user-<id>
-            # Use "documents" directly since root folder is already "academy-crm"
-            path_segments = ["documents", f"user-{user.id}"]
+        cloudinary_service = get_cloudinary_service_or_none()
+        if cloudinary_service and file:
+            folder = f"documents/user-{user.id}"
             try:
-                folder_id = drive.ensure_folder_path(path_segments)
+                # Ensure file pointer is at the beginning
+                if hasattr(file, 'seek'):
+                    file.seek(0)
+                elif hasattr(file, 'file') and hasattr(file.file, 'seek'):
+                    file.file.seek(0)
 
-                uploaded = drive.upload_file(
-                    name=file.name,
-                    mime_type=file.content_type or "application/octet-stream",
-                    content=file.file,
-                    folder_id=folder_id,
+                uploaded = cloudinary_service.upload_file(
+                    file_content=file.file if hasattr(file, 'file') else file,
+                    folder=folder,
+                    resource_type="auto",
                 )
 
                 file_obj = FileObject.objects.create(
                     organization=getattr(user, "organization", None),
                     owner_type=FileOwnerType.DOCUMENT,
                     owner_id=None,
-                    drive_file_id=uploaded.file_id,
-                    drive_folder_id=uploaded.folder_id,
-                    logical_path="/".join(path_segments),
-                    mime_type=uploaded.mime_type,
-                    size=uploaded.size,
-                    original_name=uploaded.name,
+                    cloudinary_public_id=uploaded.public_id,
+                    cloudinary_folder=uploaded.folder,
+                    cloudinary_url=uploaded.secure_url,
+                    cloudinary_resource_type=uploaded.resource_type,
+                    logical_path=folder,
+                    mime_type=file.content_type or "application/octet-stream",
+                    size=uploaded.bytes,
+                    original_name=file.name,
                     created_by=user,
                     visibility="PRIVATE",
                 )
@@ -95,51 +97,10 @@ class DocumentViewSet(viewsets.ModelViewSet):
                     action="uploaded",
                     ip=request.META.get("REMOTE_ADDR"),
                 )
-            except HttpError as e:
-                # Handle Google Drive API errors specifically
-                error_reason = None
-                error_message = str(e)
-                
-                # Try to extract error reason from error_details
-                if hasattr(e, 'error_details') and e.error_details:
-                    for detail in e.error_details:
-                        if isinstance(detail, dict):
-                            if 'reason' in detail:
-                                error_reason = detail.get('reason')
-                                break
-                            # Also check for nested error objects
-                            if 'error' in detail and isinstance(detail['error'], dict):
-                                if 'reason' in detail['error']:
-                                    error_reason = detail['error'].get('reason')
-                                    break
-                
-                # Also check error message for storage quota exceeded
-                if 'storageQuotaExceeded' in error_message.lower():
-                    error_reason = 'storageQuotaExceeded'
-                
-                # Check for storage quota exceeded error
-                if e.resp.status == 403 and error_reason == 'storageQuotaExceeded':
-                    exc = APIException(
-                        detail='Storage quota exceeded. Please free up space in Google Drive or contact your administrator.'
-                    )
-                    exc.status_code = status.HTTP_413_REQUEST_ENTITY_TOO_LARGE
-                    raise exc
-                
-                # Handle other HTTP errors
-                exc = APIException(
-                    detail=f'Failed to upload file to Google Drive: {str(e)}'
-                )
-                if e.resp.status == 403:
-                    exc.status_code = status.HTTP_403_FORBIDDEN
-                elif e.resp.status == 413:
-                    exc.status_code = status.HTTP_413_REQUEST_ENTITY_TOO_LARGE
-                else:
-                    exc.status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
-                raise exc
             except Exception as e:
-                # If upload fails with other errors, raise exception
+                # If upload fails, raise exception
                 exc = APIException(
-                    detail=f'Failed to upload file to Google Drive: {str(e)}'
+                    detail=f'Failed to upload file to Cloudinary: {str(e)}'
                 )
                 exc.status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
                 raise exc

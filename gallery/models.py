@@ -25,7 +25,7 @@ class Work(models.Model):
     owner = models.ForeignKey('accounts.User', on_delete=models.CASCADE, related_name='works')
     title = models.CharField(max_length=200)
     description = models.TextField(blank=True)
-    # Legacy media field; new uploads will use FileObject when Drive is enabled.
+    # Legacy media field; new uploads will use FileObject when Cloudinary is enabled.
     media = models.FileField(upload_to='gallery/', blank=True)
     file_object = models.ForeignKey(
         FileObject,
@@ -33,7 +33,7 @@ class Work(models.Model):
         null=True,
         blank=True,
         related_name="gallery_works",
-        help_text=_("Backed file object in Google Drive or other storage"),
+        help_text=_("Backed file object in Cloudinary or other storage"),
     )
     status = models.CharField(max_length=10, choices=WorkStatus.choices, default=WorkStatus.DRAFT)
     is_public = models.BooleanField(default=False)
