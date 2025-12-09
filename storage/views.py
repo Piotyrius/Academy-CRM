@@ -2,7 +2,6 @@ from django.http import Http404, HttpResponse, HttpResponseRedirect
 from django.utils import timezone
 from django.conf import settings
 from rest_framework import permissions, response, status, viewsets, decorators
-import requests
 
 from academy_crm.cloudinary_service import get_cloudinary_service_or_none
 from .models import FileObject, FileActivity
