@@ -212,7 +212,7 @@ class AnalyticsOverviewView(views.APIView):
         qs = get_student_financial_queryset(params)
 
         total_enrollments = qs.count()
-        total_paid = qs.aggregate(total_paid_sum=csv.Sum("total_paid"))["total_paid_sum"] or 0
+        total_paid = qs.aggregate(total_paid_sum=Sum("total_paid"))["total_paid_sum"] or 0
 
         # Simple breakdown by program for charts (frontend can aggregate further)
         by_program = {}
