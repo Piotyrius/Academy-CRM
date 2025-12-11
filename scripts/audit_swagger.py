@@ -143,10 +143,11 @@ def find_endpoints_in_file(file_path):
                     break
             
             if method_name and method_line:
-                # Check if @extend_schema exists before this method (look back up to 50 lines)
+                # Check if @extend_schema exists before this method (look back up to 100 lines)
+                # Some decorators can be quite far back, especially with multi-line schemas
                 has_extend_schema = False
                 # Look backwards from the @action line to catch decorators before @action
-                for k in range(max(0, i - 50), i):
+                for k in range(max(0, i - 100), i):
                     if '@extend_schema' in lines[k]:
                         has_extend_schema = True
                         break
