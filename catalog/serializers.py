@@ -31,9 +31,22 @@ class CohortSerializer(serializers.ModelSerializer):
     course_code = serializers.CharField(source='course.code', read_only=True)
     lecturer_name = serializers.CharField(source='lecturer.get_full_name', read_only=True)
     lecturer_email = serializers.EmailField(source='lecturer.email', read_only=True)
-    current_enrollment_count = serializers.IntegerField(read_only=True)
-    is_full = serializers.BooleanField(read_only=True)
+    current_enrollment_count = serializers.SerializerMethodField()
+    is_full = serializers.SerializerMethodField()
     status_display = serializers.CharField(source='get_status_display', read_only=True)
+    
+    def get_current_enrollment_count(self, obj):
+        """Get enrollment count from annotation or property."""
+        # Prefer annotated value if available
+        if hasattr(obj, '_annotated_enrollment_count'):
+            return obj._annotated_enrollment_count
+        # Fallback to property
+        return obj.current_enrollment_count
+    
+    def get_is_full(self, obj):
+        """Check if cohort is full using annotated count or property."""
+        count = self.get_current_enrollment_count(obj)
+        return count >= obj.capacity
     
     class Meta:
         model = Cohort

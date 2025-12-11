@@ -10,6 +10,7 @@ from django.db import transaction, models
 from django.utils import timezone
 from django.core.mail import send_mail
 from django.conf import settings
+from django.http import Http404
 import secrets
 import string
 from subscriptions.mixins import (
@@ -19,7 +20,6 @@ from accounts.models import Role
 from .models import Application, Enrollment, ApplicationStatus, EnrollmentStatus
 from .serializers import ApplicationSerializer, EnrollmentSerializer
 from .permissions import IsAdminOrLecturerOwner
-
 
 class ApplicationViewSet(
     FeatureRequiredMixin,
@@ -291,7 +291,7 @@ class EnrollmentViewSet(
     viewsets.ModelViewSet
 ):
     """ViewSet for Enrollment model."""
-    queryset = Enrollment.objects.select_related('student', 'cohort').all()
+    queryset = Enrollment.objects.select_related('student', 'cohort', 'cohort__course', 'cohort__course__program', 'cohort__lecturer').all()
     serializer_class = EnrollmentSerializer
     required_feature = 'admissions'  # Require admissions module
     permission_classes = [permissions.IsAuthenticated]
@@ -388,7 +388,13 @@ class EnrollmentViewSet(
         """Activate enrollment (check capacity with race condition protection)."""
         try:
             enrollment = self.get_object()
-            
+        except Http404:
+            return Response(
+                {'error': 'Enrollment not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        try:
             if enrollment.status != EnrollmentStatus.PENDING:
                 return Response(
                     {'error': 'Enrollment is not pending'},
@@ -415,6 +421,7 @@ class EnrollmentViewSet(
                 
                 # Re-check capacity with locked cohort
                 active_count = cohort.enrollments.filter(status=EnrollmentStatus.ACTIVE).count()
+                
                 if active_count >= cohort.capacity:
                     return Response(
                         {'error': 'Cohort is full'},

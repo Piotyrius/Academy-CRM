@@ -3,7 +3,6 @@ Test settings for Academy CRM.
 Uses SQLite in-memory database for faster tests.
 """
 from .base import *
-import os
 
 DEBUG = True
 
@@ -15,15 +14,8 @@ DATABASES = {
     }
 }
 
-# Disable migrations for faster test setup
-class DisableMigrations:
-    def __contains__(self, item):
-        return True
-    
-    def __getitem__(self, item):
-        return None
-
-MIGRATION_MODULES = DisableMigrations()
+# Enable migrations for tests to ensure proper schema creation
+# Migrations are faster with SQLite in-memory database
 
 # Speed up password hashing for tests
 PASSWORD_HASHERS = [

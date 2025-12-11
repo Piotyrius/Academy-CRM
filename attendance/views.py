@@ -16,7 +16,6 @@ from .serializers import AttendanceRecordSerializer, BulkAttendanceSerializer
 from .permissions import IsAdminOrLecturerOwner
 from catalog.models import Session
 
-
 class AttendanceRecordViewSet(
     FeatureRequiredMixin,
     OrganizationFilterMixin,
@@ -87,7 +86,9 @@ class AttendanceRecordViewSet(
             )
         
         # Check permission
-        if not request.user.is_admin and session.cohort.lecturer != request.user:
+        is_authorized = request.user.is_admin or session.cohort.lecturer == request.user
+        
+        if not is_authorized:
             return Response(
                 {'error': 'Permission denied'},
                 status=status.HTTP_403_FORBIDDEN

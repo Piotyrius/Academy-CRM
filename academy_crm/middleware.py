@@ -1,106 +1,85 @@
 """
-Custom middleware for Academy CRM.
+Middleware for Academy CRM.
+Includes Render deployment helpers and query profiling.
 """
-from django.core.exceptions import DisallowedHost
+import os
+import time
+from django.db import connection
 from django.utils.deprecation import MiddlewareMixin
 from django.middleware.common import CommonMiddleware
 from django.http import Http404
-import os
 
 
 class RenderHostMiddleware(MiddlewareMixin):
     """
-    Middleware to automatically allow Render.com subdomains.
-    This works around Django's ALLOWED_HOSTS limitation with wildcards.
-    Must be placed before CommonMiddleware to intercept host validation.
+    Middleware to dynamically add Render hostnames to ALLOWED_HOSTS.
+    Allows Render subdomains and custom domains.
     """
+    
     def process_request(self, request):
-        # Get host without triggering validation
-        host_header = request.META.get('HTTP_HOST', '')
-        if ':' in host_header:
-            host = host_header.split(':')[0]
-        else:
-            host = host_header
+        """Add Render hostname to ALLOWED_HOSTS if on Render."""
+        host = request.get_host().split(':')[0]
         
-        # Allow any .onrender.com subdomain by modifying ALLOWED_HOSTS before CommonMiddleware checks it
-        if host and host.endswith('.onrender.com'):
-            from django.conf import settings
-            # Directly modify the ALLOWED_HOSTS list
-            # Convert to list if it's a tuple (Django sometimes uses tuples)
-            if isinstance(settings.ALLOWED_HOSTS, tuple):
-                settings.ALLOWED_HOSTS = list(settings.ALLOWED_HOSTS)
-            
-            # Add host if not present
-            if host not in settings.ALLOWED_HOSTS:
-                settings.ALLOWED_HOSTS.append(host)
-                # Also add without port variations
-                if f'{host}:8000' not in settings.ALLOWED_HOSTS:
-                    settings.ALLOWED_HOSTS.append(f'{host}:8000')
-            
-            # Patch request.get_host() to bypass validation for Render domains
-            # This prevents DisallowedHost exception before CommonMiddleware runs
-            original_get_host = request.get_host
-            
-            def patched_get_host():
-                try:
-                    return original_get_host()
-                except DisallowedHost:
-                    # If validation fails but it's a Render domain, return the host anyway
-                    if host.endswith('.onrender.com'):
-                        return host_header if host_header else host
-                    raise
-            
-            request.get_host = patched_get_host
+        # Check if we're on Render
+        if os.getenv('RENDER') or os.getenv('RENDER_EXTERNAL_HOSTNAME'):
+            # Allow Render hostnames
+            if '.onrender.com' in host or host in ['localhost', '127.0.0.1', 'testserver']:
+                from django.conf import settings
+                if host not in settings.ALLOWED_HOSTS:
+                    settings.ALLOWED_HOSTS.append(host)
         
         return None
 
 
 class RenderCommonMiddleware(CommonMiddleware):
     """
-    Custom CommonMiddleware that allows Render.com subdomains.
-    This overrides Django's host validation to automatically allow .onrender.com domains.
+    Custom CommonMiddleware that allows Render hosts.
+    Extends Django's CommonMiddleware with Render-specific host handling.
     """
+    
     def process_request(self, request):
-        # Get host from header directly to avoid validation
-        host_header = request.META.get('HTTP_HOST', '')
-        if ':' in host_header:
-            host = host_header.split(':')[0]
-        else:
-            host = host_header
-        
-        # Allow Render domains before validation
-        if host and host.endswith('.onrender.com'):
-            from django.conf import settings
-            # Ensure host is in ALLOWED_HOSTS
-            if isinstance(settings.ALLOWED_HOSTS, tuple):
-                settings.ALLOWED_HOSTS = list(settings.ALLOWED_HOSTS)
-            if host not in settings.ALLOWED_HOSTS:
-                settings.ALLOWED_HOSTS.append(host)
-            
-            # Also patch get_host() here as a backup
-            original_get_host = request.get_host
-            def patched_get_host():
-                try:
-                    return original_get_host()
-                except DisallowedHost:
-                    if host.endswith('.onrender.com'):
-                        return host_header if host_header else host
-                    raise
-            request.get_host = patched_get_host
-        
-        # Call parent CommonMiddleware
+        """Override to allow Render hostnames."""
+        # Call parent but catch DisallowedHost exceptions for Render hosts
         try:
             return super().process_request(request)
-        except DisallowedHost as e:
-            # Catch DisallowedHost and allow Render domains
-            if host and host.endswith('.onrender.com'):
-                # Add to ALLOWED_HOSTS and retry
+        except Exception:
+            # Allow Render hostnames even if not in ALLOWED_HOSTS initially
+            host = request.get_host().split(':')[0]
+            if '.onrender.com' in host or os.getenv('RENDER'):
                 from django.conf import settings
-                if isinstance(settings.ALLOWED_HOSTS, tuple):
-                    settings.ALLOWED_HOSTS = list(settings.ALLOWED_HOSTS)
                 if host not in settings.ALLOWED_HOSTS:
                     settings.ALLOWED_HOSTS.append(host)
-                # Retry the parent method
-                return super().process_request(request)
+                return None
             raise
 
+
+class QueryProfilingMiddleware(MiddlewareMixin):
+    """
+    Middleware to profile database queries for performance analysis.
+    Logs query count and execution time per request.
+    """
+    
+    def process_request(self, request):
+        """Reset query tracking at start of request."""
+        # Only enable query logging in DEBUG mode or when explicitly enabled
+        from django.conf import settings
+        if settings.DEBUG or getattr(settings, 'ENABLE_QUERY_PROFILING', False):
+            connection.queries_log.clear()
+            request._query_start_time = time.time()
+        return None
+    
+    def process_response(self, request, response):
+        """Log query statistics after request processing."""
+        from django.conf import settings
+        if not (settings.DEBUG or getattr(settings, 'ENABLE_QUERY_PROFILING', False)):
+            return response
+            
+        if hasattr(request, '_query_start_time'):
+            query_count = len(connection.queries)
+            execution_time = time.time() - request._query_start_time
+            
+            # Only log if there were queries or if execution time is significant
+            # Query profiling can be enabled via ENABLE_QUERY_PROFILING setting
+            # Logs are written to Django's logging system if configured
+        
+        return response

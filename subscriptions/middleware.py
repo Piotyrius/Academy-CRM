@@ -5,8 +5,8 @@ Identifies organization from request and adds it to request context.
 from django.utils.deprecation import MiddlewareMixin
 from django.http import Http404
 from django.db import OperationalError, ProgrammingError
+from django.core.exceptions import ValidationError
 from .models import Organization
-
 
 class TenantMiddleware(MiddlewareMixin):
     """
@@ -64,7 +64,7 @@ class TenantMiddleware(MiddlewareMixin):
                 if org_id:
                     try:
                         organization = Organization.objects.get(id=org_id, status__in=['ACTIVE', 'TRIAL'])
-                    except (Organization.DoesNotExist, ValueError):
+                    except (Organization.DoesNotExist, ValueError, ValidationError):
                         pass
                     except (OperationalError, ProgrammingError):
                         request.organization = None
@@ -87,7 +87,7 @@ class TenantMiddleware(MiddlewareMixin):
                     if org_id:
                         try:
                             organization = Organization.objects.get(id=org_id, status__in=['ACTIVE', 'TRIAL'])
-                        except (Organization.DoesNotExist, ValueError):
+                        except (Organization.DoesNotExist, ValueError, ValidationError):
                             pass
                         except (OperationalError, ProgrammingError):
                             request.organization = None

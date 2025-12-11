@@ -20,6 +20,13 @@ if DEBUG:
     except ImportError:
         pass
 
+# Enable query profiling in dev
+ENABLE_QUERY_PROFILING = True
+# Add query profiling middleware after TenantMiddleware
+if 'academy_crm.middleware.QueryProfilingMiddleware' not in MIDDLEWARE:
+    tenant_index = MIDDLEWARE.index('subscriptions.middleware.TenantMiddleware')
+    MIDDLEWARE.insert(tenant_index + 1, 'academy_crm.middleware.QueryProfilingMiddleware')
+
 # CORS - allow all in dev
 CORS_ALLOW_ALL_ORIGINS = True
 

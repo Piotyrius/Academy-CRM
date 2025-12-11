@@ -11,7 +11,6 @@ from .serializers import CertificateSerializer, CertificateVerifySerializer
 from .services.certificate_service import CertificateService
 from .permissions import IsAdminOrLecturerOwner
 
-
 class CertificateViewSet(viewsets.ModelViewSet):
     """ViewSet for Certificate model."""
     queryset = Certificate.objects.select_related(
@@ -74,7 +73,8 @@ class CertificateViewSet(viewsets.ModelViewSet):
                 # Validate enrollment unless force=True
                 if not force:
                     from admissions.utils import is_student_enrolled
-                    if not is_student_enrolled(student, cohort, status='ACTIVE'):
+                    is_enrolled = is_student_enrolled(student, cohort, status='ACTIVE')
+                    if not is_enrolled:
                         errors.append(f"Student {student.get_full_name()} is not actively enrolled in this cohort")
                     else:
                         cert = CertificateService.issue_certificate(student, cohort, force=force)
@@ -132,10 +132,27 @@ class CertificateViewSet(viewsets.ModelViewSet):
             except Exception as e:
                 errors.append(str(e))
         
+        # Validate that at least one valid request was made
+        if not (student_id and cohort_id) and not (bulk_student_ids and cohort_id):
+            return Response(
+                {'error': 'Either (student_id and cohort_id) or (student_ids and cohort_id) must be provided'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # If there are errors and no successful issuances, return 400
+        if errors and len(results) == 0:
+            return Response(
+                {
+                    'error': 'Certificate issuance failed',
+                    'errors': errors
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
         return Response({
             'issued': len(results),
             'certificates': results,
-            'errors': errors
+            'errors': errors if errors else []
         })
     
     @action(detail=True, methods=['post'])

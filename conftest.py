@@ -3,9 +3,10 @@ Pytest configuration and shared fixtures for Academy CRM tests.
 """
 import pytest
 from django.contrib.auth import get_user_model
+from django.db import connection
+from django.core.management import call_command
 from rest_framework.test import APIClient
 from accounts.models import Role
-
 User = get_user_model()
 
 
@@ -14,6 +15,11 @@ def api_client():
     """API client for making requests."""
     return APIClient()
 
+
+@pytest.fixture(autouse=True)
+def setup_database(db):
+    """Setup database."""
+    pass
 
 @pytest.fixture
 def admin_user(db):

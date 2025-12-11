@@ -7,12 +7,14 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.exceptions import ValidationError
 from django.db import transaction
+from django.db.models import Count, Q
 from drf_spectacular.utils import extend_schema
 from drf_spectacular.types import OpenApiTypes
 from subscriptions.mixins import (
     OrganizationFilterMixin, FeatureRequiredMixin, OrganizationAutoSetMixin
 )
 from .models import Program, Course, Cohort, Session
+from admissions.models import EnrollmentStatus
 from .serializers import (
     ProgramSerializer,
     CourseSerializer,
@@ -64,7 +66,7 @@ class CohortViewSet(
     viewsets.ModelViewSet
 ):
     """ViewSet for Cohort model."""
-    queryset = Cohort.objects.select_related('course', 'lecturer').all()
+    queryset = Cohort.objects.select_related('course', 'course__program', 'lecturer').all()
     serializer_class = CohortSerializer
     permission_classes = [IsAuthenticated]
     required_feature = 'catalog'  # Require catalog module
@@ -90,6 +92,15 @@ class CohortViewSet(
         # Lecturers only see their own cohorts
         if user.is_lecturer:
             queryset = queryset.filter(lecturer=user)
+        
+        # Annotate enrollment count to avoid N+1 queries
+        # Use different name to avoid conflict with property
+        queryset = queryset.annotate(
+            _annotated_enrollment_count=Count(
+                'enrollments',
+                filter=Q(enrollments__status=EnrollmentStatus.ACTIVE)
+            )
+        )
         
         return queryset
     

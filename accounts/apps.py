@@ -41,7 +41,21 @@ class AccountsConfig(AppConfig):
                 
                 def noop_create_anonymous_user(*args, **kwargs):
                     """No-op version that does nothing during migrations."""
-                    pass
+                    # Additional safety: check if we're still in migrate context
+                    if 'migrate' in sys.argv:
+                        return
+                    # If somehow we get here, try to handle gracefully
+                    try:
+                        # Only proceed if User model has all expected fields
+                        from django.contrib.auth import get_user_model
+                        User = get_user_model()
+                        # Try a simple query to check if model is ready
+                        User._meta.get_field('profile_picture')
+                        # If we get here, model is ready, call original
+                        return original_create_anonymous_user(*args, **kwargs)
+                    except Exception:
+                        # Model not ready, skip
+                        return
                 
                 # Replace the function
                 management.create_anonymous_user = noop_create_anonymous_user

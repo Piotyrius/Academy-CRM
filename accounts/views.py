@@ -392,6 +392,9 @@ class CustomTokenBlacklistView(TokenBlacklistView):
     """Custom token blacklist view for logout."""
     permission_classes = [permissions.AllowAny]  # Allow authenticated users to logout
     throttle_classes = [LogoutThrottle]
+    
+    def post(self, request, *args, **kwargs):
+        return super().post(request, *args, **kwargs)
 
 
 @api_view(['GET'])

@@ -9,7 +9,6 @@ from attendance.models import AttendanceRecord, AttendanceStatus
 from assessment.models import Grade
 from .pdf_generator import PDFGenerator
 
-
 class CertificateService:
     """Service for certificate operations."""
     

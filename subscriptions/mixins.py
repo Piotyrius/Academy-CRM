@@ -6,7 +6,6 @@ from rest_framework import status
 from rest_framework.exceptions import PermissionDenied
 from .utils import has_feature
 
-
 class OrganizationFilterMixin:
     """
     Mixin to filter queryset by organization.
@@ -62,9 +61,9 @@ class FeatureRequiredMixin:
             # Get organization from request
             organization = getattr(request, 'organization', None)
             
-            # If no organization in request, try to get from user
-            if not organization and hasattr(request, 'user') and request.user.is_authenticated:
-                if hasattr(request.user, 'organization'):
+            # If no organization in request, try to get from user (user's org takes precedence)
+            if hasattr(request, 'user') and request.user.is_authenticated:
+                if hasattr(request.user, 'organization') and request.user.organization:
                     organization = request.user.organization
             
             # Check if organization has access to this feature

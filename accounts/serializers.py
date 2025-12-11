@@ -7,7 +7,6 @@ from cryptography.fernet import InvalidToken
 from .models import User, Role
 from .mfa import verify_totp
 
-
 class UserSerializer(serializers.ModelSerializer):
     """Serializer for User model."""
     role_display = serializers.CharField(source='get_role_display', read_only=True)
@@ -202,7 +201,8 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
                 )
             # `mfa_secret` is encrypted at rest; accessing it decrypts via fernet_fields.
             secret = getattr(self.user, 'mfa_secret', None)
-            if not secret or not verify_totp(secret, str(mfa_code).strip()):
+            mfa_valid = secret and verify_totp(secret, str(mfa_code).strip())
+            if not mfa_valid:
                 raise serializers.ValidationError(
                     {'mfa_code': 'Invalid or expired MFA code.'}
                 )
