@@ -116,7 +116,14 @@ class DocumentViewSet(viewsets.ModelViewSet):
 
         cloudinary_service = get_cloudinary_service_or_none()
         if cloudinary_service and file:
-            folder = f"documents/user-{user.id}"
+            # Build hierarchical folder structure: org/{org_id}/documents/user-{user_id}
+            # This provides better organization and multi-tenant isolation
+            organization = getattr(user, "organization", None)
+            if organization:
+                folder = f"org-{organization.id}/documents/user-{user.id}"
+            else:
+                folder = f"documents/user-{user.id}"
+            
             try:
                 # Ensure file pointer is at the beginning
                 if hasattr(file, 'seek'):
@@ -131,7 +138,7 @@ class DocumentViewSet(viewsets.ModelViewSet):
                 )
 
                 file_obj = FileObject.objects.create(
-                    organization=getattr(user, "organization", None),
+                    organization=organization,
                     owner_type=FileOwnerType.DOCUMENT,
                     owner_id=None,
                     cloudinary_public_id=uploaded.public_id,

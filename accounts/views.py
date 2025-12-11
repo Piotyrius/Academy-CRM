@@ -318,8 +318,13 @@ class UserViewSet(viewsets.ModelViewSet):
             elif hasattr(file, 'file') and hasattr(file.file, 'seek'):
                 file.file.seek(0)
             
-            # Upload to Cloudinary in profile-pictures folder
-            folder = "profile-pictures"
+            # Upload to Cloudinary with organization-based folder structure
+            # Format: org-{org_id}/profile-pictures or profile-pictures (if no org)
+            organization = getattr(user, "organization", None)
+            if organization:
+                folder = f"org-{organization.id}/profile-pictures"
+            else:
+                folder = "profile-pictures"
             public_id = str(user.id)  # Use user ID as public_id
             
             uploaded = cloudinary_service.upload_file(

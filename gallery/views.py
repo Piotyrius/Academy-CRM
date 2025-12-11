@@ -181,7 +181,14 @@ class WorkViewSet(viewsets.ModelViewSet):
             elif hasattr(file, 'file') and hasattr(file.file, 'seek'):
                 file.file.seek(0)
 
-            folder = f"gallery/user-{user.id}"
+            # Build hierarchical folder structure: org/{org_id}/gallery/user-{user_id}
+            # This provides better organization and multi-tenant isolation
+            organization = getattr(user, "organization", None)
+            if organization:
+                folder = f"org-{organization.id}/gallery/user-{user.id}"
+            else:
+                folder = f"gallery/user-{user.id}"
+            
             uploaded = cloudinary_service.upload_file(
                 file_content=file.file if hasattr(file, 'file') else file,
                 folder=folder,
@@ -189,7 +196,7 @@ class WorkViewSet(viewsets.ModelViewSet):
             )
 
             file_obj = FileObject.objects.create(
-                organization=getattr(user, "organization", None),
+                organization=organization,
                 owner_type=FileOwnerType.GALLERY_WORK,
                 owner_id=None,
                 cloudinary_public_id=uploaded.public_id,
