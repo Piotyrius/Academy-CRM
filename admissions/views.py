@@ -97,6 +97,37 @@ This link will expire in 7 days.''',
             logger = logging.getLogger(__name__)
             logger.error(f"Failed to send password setup email to {user.email}: {e}")
     
+    @extend_schema(
+        tags=['Admissions'],
+        summary="Accept application",
+        description=(
+            "Accept an application and create an enrollment. "
+            "If the student user doesn't exist, a new user account will be created with a temporary password. "
+            "Requires cohort_id in request body."
+        ),
+        request={
+            'type': 'object',
+            'properties': {
+                'cohort_id': {
+                    'type': 'string',
+                    'format': 'uuid',
+                    'description': 'UUID of the cohort to enroll the student in'
+                }
+            },
+            'required': ['cohort_id']
+        },
+        responses={
+            200: EnrollmentSerializer,
+            400: {
+                'type': 'object',
+                'properties': {
+                    'error': {'type': 'string'},
+                    'detail': {'type': 'string'}
+                }
+            },
+            404: OpenApiTypes.OBJECT,
+        }
+    )
     @action(detail=True, methods=['post'])
     def accept(self, request, pk=None):
         """Accept application and create enrollment."""
@@ -408,6 +439,15 @@ class EnrollmentViewSet(
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
     
+    @extend_schema(
+        tags=['Enrollments'],
+        summary="Withdraw enrollment",
+        description="Withdraw an enrollment by changing its status to WITHDRAWN.",
+        responses={
+            200: EnrollmentSerializer,
+            404: OpenApiTypes.OBJECT,
+        }
+    )
     @action(detail=True, methods=['post'])
     def withdraw(self, request, pk=None):
         """Withdraw enrollment."""
@@ -418,6 +458,15 @@ class EnrollmentViewSet(
         serializer = self.get_serializer(enrollment)
         return Response(serializer.data)
     
+    @extend_schema(
+        tags=['Enrollments'],
+        summary="Complete enrollment",
+        description="Mark an enrollment as completed. Sets status to COMPLETED and records completion timestamp.",
+        responses={
+            200: EnrollmentSerializer,
+            404: OpenApiTypes.OBJECT,
+        }
+    )
     @action(detail=True, methods=['post'])
     def complete(self, request, pk=None):
         """Mark enrollment as completed."""
@@ -429,6 +478,32 @@ class EnrollmentViewSet(
         serializer = self.get_serializer(enrollment)
         return Response(serializer.data)
     
+    @extend_schema(
+        tags=['Enrollments'],
+        summary="Get waitlisted enrollments",
+        description="Retrieve all waitlisted enrollments (pending enrollments for cohorts that are at capacity). Admin only.",
+        responses={
+            200: {
+                'type': 'object',
+                'properties': {
+                    'count': {'type': 'integer', 'description': 'Number of waitlisted enrollments'},
+                    'enrollments': {
+                        'type': 'array',
+                        'items': {'type': 'object'},
+                        'description': 'List of waitlisted enrollments'
+                    }
+                }
+            },
+            403: {
+                'type': 'object',
+                'properties': {
+                    'error': {'type': 'string'}
+                },
+                'description': 'Only admins can view waitlist'
+            },
+            401: OpenApiTypes.OBJECT,
+        }
+    )
     @action(detail=False, methods=['get'])
     def waitlist(self, request):
         """Get waitlisted enrollments (pending enrollments for full cohorts)."""

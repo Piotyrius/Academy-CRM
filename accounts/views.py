@@ -7,7 +7,7 @@ from rest_framework.response import Response
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenBlacklistView, TokenRefreshView
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import extend_schema, OpenApiResponse
 from drf_spectacular.types import OpenApiTypes
 from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
@@ -59,12 +59,32 @@ class UserViewSet(viewsets.ModelViewSet):
             return [permissions.IsAuthenticated(), IsAdminOrSelf()]
         return [IsAdminUser()]
     
+    @extend_schema(
+        tags=['Users'],
+        summary="Get current user profile",
+        description="Retrieve the profile information of the currently authenticated user.",
+        responses={
+            200: UserSerializer,
+            401: OpenApiTypes.OBJECT,
+        }
+    )
     @action(detail=False, methods=['get'])
     def me(self, request):
         """Get current user profile."""
         serializer = self.get_serializer(request.user)
         return Response(serializer.data)
     
+    @extend_schema(
+        tags=['Users'],
+        summary="Update current user profile",
+        description="Update the profile information of the currently authenticated user. Only the provided fields will be updated.",
+        request=UserSerializer,
+        responses={
+            200: UserSerializer,
+            400: OpenApiTypes.OBJECT,
+            401: OpenApiTypes.OBJECT,
+        }
+    )
     @action(detail=False, methods=['patch', 'put'])
     def me_update(self, request):
         """Update current user profile."""
@@ -73,6 +93,25 @@ class UserViewSet(viewsets.ModelViewSet):
         serializer.save()
         return Response(serializer.data)
 
+    @extend_schema(
+        tags=['Users'],
+        summary="Start MFA setup",
+        description=(
+            "Start multi-factor authentication setup for the current user. "
+            "Generates a new TOTP secret and returns it so the frontend can show a QR code. "
+            "MFA is not enabled until `mfa_verify` succeeds."
+        ),
+        responses={
+            200: {
+                'type': 'object',
+                'properties': {
+                    'mfa_secret': {'type': 'string', 'description': 'TOTP secret key for QR code generation'},
+                    'mfa_enabled': {'type': 'boolean', 'description': 'Always false until verified'},
+                }
+            },
+            401: OpenApiTypes.OBJECT,
+        }
+    )
     @action(detail=False, methods=['post'])
     def mfa_setup(self, request):
         """
@@ -95,6 +134,37 @@ class UserViewSet(viewsets.ModelViewSet):
             status=status.HTTP_200_OK,
         )
 
+    @extend_schema(
+        tags=['Users'],
+        summary="Verify MFA code",
+        description=(
+            "Verify an MFA code for the current user and enable MFA if valid. "
+            "The user must have called mfa_setup first to generate a secret."
+        ),
+        request={
+            'type': 'object',
+            'properties': {
+                'mfa_code': {'type': 'string', 'description': '6-digit TOTP code from authenticator app'}
+            },
+            'required': ['mfa_code']
+        },
+        responses={
+            200: {
+                'type': 'object',
+                'properties': {
+                    'mfa_enabled': {'type': 'boolean', 'description': 'True if MFA is now enabled'}
+                }
+            },
+            400: {
+                'type': 'object',
+                'properties': {
+                    'detail': {'type': 'string'},
+                    'mfa_code': {'type': 'array', 'items': {'type': 'string'}}
+                }
+            },
+            401: OpenApiTypes.OBJECT,
+        }
+    )
     @action(detail=False, methods=['post'])
     def mfa_verify(self, request):
         """
@@ -117,6 +187,20 @@ class UserViewSet(viewsets.ModelViewSet):
         user.save(update_fields=['mfa_enabled'])
         return Response({'mfa_enabled': True}, status=status.HTTP_200_OK)
 
+    @extend_schema(
+        tags=['Users'],
+        summary="Disable MFA",
+        description="Disable multi-factor authentication for the current user and clear the stored secret.",
+        responses={
+            200: {
+                'type': 'object',
+                'properties': {
+                    'mfa_enabled': {'type': 'boolean', 'description': 'Always false after disabling'}
+                }
+            },
+            401: OpenApiTypes.OBJECT,
+        }
+    )
     @action(detail=False, methods=['post'])
     def mfa_disable(self, request):
         """
@@ -128,6 +212,66 @@ class UserViewSet(viewsets.ModelViewSet):
         user.save(update_fields=['mfa_secret', 'mfa_enabled'])
         return Response({'mfa_enabled': False}, status=status.HTTP_200_OK)
 
+    @extend_schema(
+        tags=['Users'],
+        summary="Upload Profile Picture",
+        description=(
+            "Upload a profile picture for the current authenticated user. "
+            "The image is uploaded to Cloudinary and automatically replaces any existing profile picture. "
+            "Maximum file size: 5MB. Accepted formats: JPEG, PNG, GIF, WebP, etc."
+        ),
+        request={
+            'multipart/form-data': {
+                'type': 'object',
+                'properties': {
+                    'profile_picture': {
+                        'type': 'string',
+                        'format': 'binary',
+                        'description': 'Image file to upload (max 5MB)'
+                    }
+                },
+                'required': ['profile_picture']
+            }
+        },
+        responses={
+            200: {
+                'type': 'object',
+                'properties': {
+                    'profile_picture': {
+                        'type': 'string',
+                        'description': 'Cloudinary public_id of the uploaded image'
+                    },
+                    'profile_picture_url': {
+                        'type': 'string',
+                        'format': 'uri',
+                        'description': 'URL to the profile picture with 50x50 transformation'
+                    }
+                }
+            },
+            400: {
+                'type': 'object',
+                'properties': {
+                    'detail': {'type': 'string'}
+                },
+                'description': 'Bad request - No file, invalid file type, or file too large'
+            },
+            401: OpenApiTypes.OBJECT,
+            503: {
+                'type': 'object',
+                'properties': {
+                    'detail': {'type': 'string'}
+                },
+                'description': 'Cloudinary is not configured'
+            },
+            500: {
+                'type': 'object',
+                'properties': {
+                    'detail': {'type': 'string'}
+                },
+                'description': 'Internal server error during upload'
+            }
+        }
+    )
     @action(detail=False, methods=['post'])
     def upload_profile_picture(self, request):
         """
@@ -442,6 +586,18 @@ class StudentPortalViewSet(viewsets.ViewSet):
     """
     permission_classes = [permissions.IsAuthenticated]
     
+    @extend_schema(
+        tags=['Users'],
+        summary="Get student enrollments",
+        description="Retrieve all enrollments for the current authenticated user (student).",
+        responses={
+            200: {
+                'type': 'array',
+                'items': {'type': 'object'}
+            },
+            401: OpenApiTypes.OBJECT,
+        }
+    )
     @action(detail=False, methods=['get'])
     def enrollments(self, request):
         """Get student's enrollments."""
@@ -453,6 +609,18 @@ class StudentPortalViewSet(viewsets.ViewSet):
         serializer = EnrollmentSerializer(enrollments, many=True, context={'request': request})
         return Response(serializer.data)
     
+    @extend_schema(
+        tags=['Users'],
+        summary="Get student attendance records",
+        description="Retrieve all attendance records for the current authenticated user (student).",
+        responses={
+            200: {
+                'type': 'array',
+                'items': {'type': 'object'}
+            },
+            401: OpenApiTypes.OBJECT,
+        }
+    )
     @action(detail=False, methods=['get'])
     def attendance(self, request):
         """Get student's attendance records."""
@@ -464,6 +632,18 @@ class StudentPortalViewSet(viewsets.ViewSet):
         serializer = AttendanceRecordSerializer(attendance_records, many=True, context={'request': request})
         return Response(serializer.data)
     
+    @extend_schema(
+        tags=['Users'],
+        summary="Get student assessments",
+        description="Retrieve all published assessments for cohorts the current authenticated user (student) is enrolled in.",
+        responses={
+            200: {
+                'type': 'array',
+                'items': {'type': 'object'}
+            },
+            401: OpenApiTypes.OBJECT,
+        }
+    )
     @action(detail=False, methods=['get'])
     def assessments(self, request):
         """Get student's assessments."""
@@ -480,6 +660,29 @@ class StudentPortalViewSet(viewsets.ViewSet):
         serializer = AssessmentSerializer(assessments, many=True, context={'request': request})
         return Response(serializer.data)
     
+    @extend_schema(
+        tags=['Users'],
+        summary="Get student invoices and payments",
+        description="Retrieve all invoices and payment records for the current authenticated user (student).",
+        responses={
+            200: {
+                'type': 'object',
+                'properties': {
+                    'invoices': {
+                        'type': 'array',
+                        'items': {'type': 'object'},
+                        'description': 'List of invoices for the student'
+                    },
+                    'payments': {
+                        'type': 'array',
+                        'items': {'type': 'object'},
+                        'description': 'List of payments made by the student'
+                    }
+                }
+            },
+            401: OpenApiTypes.OBJECT,
+        }
+    )
     @action(detail=False, methods=['get'])
     def payments(self, request):
         """Get student's invoices and payments."""
@@ -501,6 +704,28 @@ class StudentPortalViewSet(viewsets.ViewSet):
             'payments': payment_serializer.data,
         })
     
+    @extend_schema(
+        tags=['Users'],
+        summary="Get student outstanding balance",
+        description="Calculate and return the total outstanding balance for all unpaid invoices of the current authenticated user (student).",
+        responses={
+            200: {
+                'type': 'object',
+                'properties': {
+                    'total_outstanding': {
+                        'type': 'number',
+                        'format': 'decimal',
+                        'description': 'Total outstanding balance amount'
+                    },
+                    'invoice_count': {
+                        'type': 'integer',
+                        'description': 'Number of unpaid invoices'
+                    }
+                }
+            },
+            401: OpenApiTypes.OBJECT,
+        }
+    )
     @action(detail=False, methods=['get'])
     def outstanding_balance(self, request):
         """Get total outstanding balance for student."""
@@ -521,6 +746,18 @@ class StudentPortalViewSet(viewsets.ViewSet):
             'invoice_count': invoices.count(),
         })
     
+    @extend_schema(
+        tags=['Users'],
+        summary="Get student grades",
+        description="Retrieve all grades for the current authenticated user (student).",
+        responses={
+            200: {
+                'type': 'array',
+                'items': {'type': 'object'}
+            },
+            401: OpenApiTypes.OBJECT,
+        }
+    )
     @action(detail=False, methods=['get'])
     def grades(self, request):
         """Get student's grades."""
@@ -532,6 +769,18 @@ class StudentPortalViewSet(viewsets.ViewSet):
         serializer = GradeSerializer(grades, many=True, context={'request': request})
         return Response(serializer.data)
     
+    @extend_schema(
+        tags=['Users'],
+        summary="Get student certificates",
+        description="Retrieve all certificates issued to the current authenticated user (student).",
+        responses={
+            200: {
+                'type': 'array',
+                'items': {'type': 'object'}
+            },
+            401: OpenApiTypes.OBJECT,
+        }
+    )
     @action(detail=False, methods=['get'])
     def certificates(self, request):
         """Get student's certificates."""

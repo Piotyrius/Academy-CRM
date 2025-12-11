@@ -6,6 +6,8 @@ from django.utils import timezone
 from rest_framework import viewsets, permissions, status
 from rest_framework.exceptions import APIException
 from django.http import Http404
+from drf_spectacular.utils import extend_schema
+from drf_spectacular.types import OpenApiTypes
 from academy_crm.cloudinary_service import get_cloudinary_service_or_none
 from storage.models import FileObject, FileOwnerType, FileActivity
 from .models import Document
@@ -22,6 +24,62 @@ class DocumentViewSet(viewsets.ModelViewSet):
     search_fields = ['description']
     ordering_fields = ['created_at']
     ordering = ['-created_at']
+    
+    @extend_schema(
+        tags=['Documents'],
+        summary="Create document with file upload",
+        description=(
+            "Create a new document with file upload. The file is uploaded to Cloudinary. "
+            "Accepts multipart/form-data with 'file' field. Maximum file size depends on Cloudinary limits."
+        ),
+        request={
+            'multipart/form-data': {
+                'type': 'object',
+                'properties': {
+                    'file': {
+                        'type': 'string',
+                        'format': 'binary',
+                        'description': 'Document file to upload'
+                    },
+                    'kind': {
+                        'type': 'string',
+                        'description': 'Document type/category'
+                    },
+                    'description': {
+                        'type': 'string',
+                        'description': 'Document description'
+                    },
+                    'visibility': {
+                        'type': 'string',
+                        'enum': ['PRIVATE', 'LECTURER', 'ADMIN'],
+                        'description': 'Document visibility level'
+                    }
+                },
+                'required': ['file']
+            }
+        },
+        responses={
+            201: DocumentSerializer,
+            400: OpenApiTypes.OBJECT,
+            401: OpenApiTypes.OBJECT,
+            500: {
+                'type': 'object',
+                'properties': {
+                    'detail': {'type': 'string'}
+                },
+                'description': 'File upload failed'
+            },
+            503: {
+                'type': 'object',
+                'properties': {
+                    'detail': {'type': 'string'}
+                },
+                'description': 'Cloudinary is not configured'
+            }
+        }
+    )
+    def create(self, request, *args, **kwargs):
+        return super().create(request, *args, **kwargs)
     
     def get_queryset(self):
         """Filter queryset based on user role and visibility."""

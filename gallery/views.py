@@ -4,6 +4,8 @@ from django.db.models import Q
 from django.http import Http404
 from rest_framework import viewsets, permissions, decorators, response, status
 from rest_framework.exceptions import ValidationError, APIException
+from drf_spectacular.utils import extend_schema
+from drf_spectacular.types import OpenApiTypes
 from academy_crm.cloudinary_service import get_cloudinary_service_or_none
 from storage.models import FileObject, FileOwnerType, FileActivity
 from .models import Work, WorkStatus
@@ -24,6 +26,73 @@ class WorkViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
     filterset_fields = ['owner', 'status', 'is_public']
     ordering = ['-created_at']
+    
+    @extend_schema(
+        tags=['Gallery'],
+        summary="Create gallery work with media upload",
+        description=(
+            "Create a new gallery work with media file upload. The file is uploaded to Cloudinary. "
+            "Accepts multipart/form-data with 'media' field. Maximum file size: 100MB. "
+            "Supports images, videos, and other media types."
+        ),
+        request={
+            'multipart/form-data': {
+                'type': 'object',
+                'properties': {
+                    'media': {
+                        'type': 'string',
+                        'format': 'binary',
+                        'description': 'Media file to upload (image, video, etc.) - max 100MB'
+                    },
+                    'title': {
+                        'type': 'string',
+                        'description': 'Work title'
+                    },
+                    'description': {
+                        'type': 'string',
+                        'description': 'Work description'
+                    },
+                    'is_public': {
+                        'type': 'boolean',
+                        'description': 'Whether the work is publicly visible'
+                    },
+                    'status': {
+                        'type': 'string',
+                        'enum': ['DRAFT', 'PUBLISHED'],
+                        'description': 'Work status'
+                    }
+                },
+                'required': ['media']
+            }
+        },
+        responses={
+            201: WorkSerializer,
+            400: {
+                'type': 'object',
+                'properties': {
+                    'media': {'type': 'array', 'items': {'type': 'string'}}
+                },
+                'description': 'Validation error - missing file or invalid file'
+            },
+            401: OpenApiTypes.OBJECT,
+            500: {
+                'type': 'object',
+                'properties': {
+                    'detail': {'type': 'string'}
+                },
+                'description': 'File upload failed'
+            },
+            503: {
+                'type': 'object',
+                'properties': {
+                    'detail': {'type': 'string'}
+                },
+                'description': 'Cloudinary is not configured'
+            }
+        }
+    )
+    def create(self, request, *args, **kwargs):
+        return super().create(request, *args, **kwargs)
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -156,6 +225,22 @@ class WorkViewSet(viewsets.ModelViewSet):
             exc.status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
             raise exc
 
+    @extend_schema(
+        tags=['Gallery'],
+        summary="Publish gallery work",
+        description="Publish a gallery work (change status to PUBLISHED). Only the work owner or admin can publish.",
+        responses={
+            200: WorkSerializer,
+            403: {
+                'type': 'object',
+                'properties': {
+                    'detail': {'type': 'string'}
+                },
+                'description': 'Forbidden - not owner or admin'
+            },
+            404: OpenApiTypes.OBJECT,
+        }
+    )
     @decorators.action(detail=True, methods=['patch'], permission_classes=[permissions.IsAuthenticated])
     def publish(self, request, pk=None):
         work = self.get_object()

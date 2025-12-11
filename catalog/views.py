@@ -7,6 +7,8 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.exceptions import ValidationError
 from django.db import transaction
+from drf_spectacular.utils import extend_schema
+from drf_spectacular.types import OpenApiTypes
 from subscriptions.mixins import (
     OrganizationFilterMixin, FeatureRequiredMixin, OrganizationAutoSetMixin
 )
@@ -91,6 +93,67 @@ class CohortViewSet(
         
         return queryset
     
+    @extend_schema(
+        tags=['Catalog'],
+        summary="Generate recurring sessions",
+        description=(
+            "Generate recurring sessions for a cohort based on a pattern (e.g., 'TUE,THU'). "
+            "Creates session instances for each occurrence matching the pattern within the cohort's date range."
+        ),
+        request={
+            'type': 'object',
+            'properties': {
+                'pattern': {
+                    'type': 'string',
+                    'description': 'Day pattern (e.g., "TUE,THU" or "MON,WED,FRI")',
+                    'example': 'TUE,THU'
+                },
+                'start_time': {
+                    'type': 'string',
+                    'format': 'time',
+                    'description': 'Session start time (HH:MM format)',
+                    'example': '19:00'
+                },
+                'end_time': {
+                    'type': 'string',
+                    'format': 'time',
+                    'description': 'Session end time (HH:MM format)',
+                    'example': '21:00'
+                },
+                'exclude_holidays': {
+                    'type': 'boolean',
+                    'description': 'Whether to exclude holidays from generation',
+                    'default': True
+                },
+                'manual_exclusions': {
+                    'type': 'array',
+                    'items': {'type': 'string', 'format': 'date'},
+                    'description': 'List of specific dates to exclude (YYYY-MM-DD format)'
+                }
+            },
+            'required': ['pattern']
+        },
+        responses={
+            200: {
+                'type': 'object',
+                'properties': {
+                    'created': {'type': 'integer', 'description': 'Number of sessions created'},
+                    'sessions': {
+                        'type': 'array',
+                        'items': {'type': 'object'},
+                        'description': 'List of created sessions'
+                    }
+                }
+            },
+            400: {
+                'type': 'object',
+                'properties': {
+                    'error': {'type': 'string'}
+                }
+            },
+            404: OpenApiTypes.OBJECT,
+        }
+    )
     @action(detail=True, methods=['post'])
     def generate_sessions(self, request, pk=None):
         """Generate recurring sessions for a cohort."""
@@ -205,6 +268,25 @@ class LecturerViewSet(FeatureRequiredMixin, viewsets.ViewSet):
     permission_classes = [IsAuthenticated]
     required_feature = 'catalog'  # Require catalog module
     
+    @extend_schema(
+        tags=['Catalog'],
+        summary="Get lecturer cohorts",
+        description="Retrieve all cohorts assigned to the current authenticated lecturer.",
+        responses={
+            200: {
+                'type': 'array',
+                'items': {'type': 'object'}
+            },
+            403: {
+                'type': 'object',
+                'properties': {
+                    'error': {'type': 'string'}
+                },
+                'description': 'Only lecturers can access this endpoint'
+            },
+            401: OpenApiTypes.OBJECT,
+        }
+    )
     @action(detail=False, methods=['get'])
     def cohorts(self, request):
         """Get lecturer's own cohorts."""
