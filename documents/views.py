@@ -4,8 +4,10 @@ Views for documents app.
 from django.db import models
 from django.utils import timezone
 from rest_framework import viewsets, permissions, status
+from rest_framework.decorators import action
 from rest_framework.exceptions import APIException
-from django.http import Http404
+from rest_framework.response import Response
+from django.http import Http404, HttpResponseRedirect
 from drf_spectacular.utils import extend_schema
 from drf_spectacular.types import OpenApiTypes
 from academy_crm.cloudinary_service import get_cloudinary_service_or_none
@@ -17,7 +19,7 @@ from .permissions import IsOwnerOrAdmin
 
 class DocumentViewSet(viewsets.ModelViewSet):
     """ViewSet for Document model."""
-    queryset = Document.objects.select_related('owner').all()
+    queryset = Document.objects.select_related('owner', 'file_object').all()
     serializer_class = DocumentSerializer
     permission_classes = [permissions.IsAuthenticated, IsOwnerOrAdmin]
     filterset_fields = ['kind', 'owner', 'visibility']
@@ -171,3 +173,79 @@ class DocumentViewSet(viewsets.ModelViewSet):
                 raise exc
         else:
             serializer.save(owner=user)
+    
+    @extend_schema(
+        tags=['Documents'],
+        summary="Download document file",
+        description=(
+            "Download a document file. Returns a redirect to the Cloudinary URL if available, "
+            "or falls back to legacy file storage. Logs the download activity."
+        ),
+        responses={
+            302: {
+                'description': 'Redirect to file URL',
+                'headers': {
+                    'Location': {
+                        'schema': {'type': 'string'},
+                        'description': 'URL to the document file'
+                    }
+                }
+            },
+            404: {
+                'type': 'object',
+                'properties': {
+                    'detail': {'type': 'string'}
+                },
+                'description': 'Document or file not found'
+            },
+            503: {
+                'type': 'object',
+                'properties': {
+                    'detail': {'type': 'string'}
+                },
+                'description': 'Cloudinary is not configured'
+            }
+        }
+    )
+    @action(detail=True, methods=['get'], url_path='download')
+    def download(self, request, pk=None):
+        """
+        Download a document file.
+        
+        Returns a redirect to the Cloudinary URL if the document has a file_object
+        with a Cloudinary URL. Falls back to legacy file storage if available.
+        Logs the download activity for audit purposes.
+        """
+        document = self.get_object()
+        cloudinary_service = get_cloudinary_service_or_none()
+        
+        # Check if document has a file_object with Cloudinary URL
+        if document.file_object and document.file_object.cloudinary_url:
+            # Log download activity
+            FileActivity.objects.create(
+                file=document.file_object,
+                user=request.user if request.user.is_authenticated else None,
+                action="downloaded",
+                ip=request.META.get("REMOTE_ADDR"),
+            )
+            # Redirect to Cloudinary URL for direct download
+            return HttpResponseRedirect(document.file_object.cloudinary_url)
+        
+        # Fallback to legacy file storage
+        if document.file:
+            # Log download activity if we have a file_object
+            if document.file_object:
+                FileActivity.objects.create(
+                    file=document.file_object,
+                    user=request.user if request.user.is_authenticated else None,
+                    action="downloaded",
+                    ip=request.META.get("REMOTE_ADDR"),
+                )
+            # Return redirect to legacy file URL
+            return HttpResponseRedirect(document.file.url)
+        
+        # No file available
+        return Response(
+            {"detail": "Document file not available. The document may not have been uploaded yet."},
+            status=status.HTTP_404_NOT_FOUND
+        )
