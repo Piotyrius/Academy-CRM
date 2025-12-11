@@ -426,16 +426,37 @@ def verify_token(request):
     """Verify access token validity and return user info if valid."""
     auth_header = request.META.get('HTTP_AUTHORIZATION', '')
     
-    if not auth_header.startswith('Bearer '):
+    if not auth_header:
         return Response(
-            {'valid': False, 'detail': 'No valid token provided.'},
+            {'valid': False, 'detail': 'No authorization header provided.'},
+            status=status.HTTP_401_UNAUTHORIZED
+        )
+    
+    # Handle malformed headers (e.g., "Bearer Bearer <token>" from Swagger UI)
+    # Remove all "Bearer " prefixes and extract the actual token
+    parts = auth_header.split()
+    if len(parts) < 2:
+        return Response(
+            {'valid': False, 'detail': 'Authorization header must contain two space-delimited values.'},
+            status=status.HTTP_401_UNAUTHORIZED
+        )
+    
+    # Find the actual token (last part after all "Bearer" prefixes)
+    token = None
+    for i, part in enumerate(parts):
+        if part.upper() == 'BEARER':
+            continue
+        # Found the token (first non-Bearer part)
+        token = ' '.join(parts[i:])  # Join remaining parts in case token has spaces (shouldn't, but safe)
+        break
+    
+    if not token:
+        return Response(
+            {'valid': False, 'detail': 'No token found in authorization header.'},
             status=status.HTTP_401_UNAUTHORIZED
         )
     
     try:
-        # Extract token from header
-        token = auth_header.split(' ')[1]
-        
         # Use JWT authentication to validate token
         jwt_auth = JWTAuthentication()
         validated_token = jwt_auth.get_validated_token(token)
