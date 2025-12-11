@@ -134,19 +134,28 @@ def find_endpoints_in_file(file_path):
         if '@action' in line or '@api_view' in line:
             # Find the method name on next few lines
             method_name = None
-            for j in range(i, min(i + 5, len(lines))):
+            method_line = None
+            for j in range(i, min(i + 10, len(lines))):
                 method_match = re.search(r'def\s+(\w+)\(', lines[j])
                 if method_match:
                     method_name = method_match.group(1)
+                    method_line = j + 1  # Line numbers are 1-indexed
                     break
             
-            if method_name:
-                # Check if @extend_schema exists before this method
+            if method_name and method_line:
+                # Check if @extend_schema exists before this method (look back up to 50 lines)
                 has_extend_schema = False
-                for k in range(max(0, i - 10), i):
+                # Look backwards from the @action line to catch decorators before @action
+                for k in range(max(0, i - 50), i):
                     if '@extend_schema' in lines[k]:
                         has_extend_schema = True
                         break
+                # Also check between @action and method definition (decorators can be between them)
+                if not has_extend_schema:
+                    for k in range(i, min(method_line, len(lines))):
+                        if '@extend_schema' in lines[k]:
+                            has_extend_schema = True
+                            break
                 
                 endpoints_found.append({
                     'class': current_class_name or 'Unknown',
