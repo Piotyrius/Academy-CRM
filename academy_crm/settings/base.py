@@ -408,6 +408,69 @@ except ImportError:
 # Sentry (will be configured in prod)
 SENTRY_DSN = os.getenv('SENTRY_DSN', '')
 
+
+def normalize_swagger_tags(result, generator, request, public):
+    """
+    Postprocessing hook to normalize and merge Swagger tags.
+    Merges tags with the same name but different cases (e.g., 'auth' and 'Auth').
+    Uses the canonical tag names from TAGS list.
+    """
+    # Define canonical tag names (from TAGS list)
+    canonical_tags = {
+        'auth': 'Auth',
+        'users': 'Users',
+        'catalog': 'Catalog',
+        'admissions': 'Admissions',
+        'enrollments': 'Enrollments',
+        'documents': 'Documents',
+        'gallery': 'Gallery',
+        'reporting': 'Reporting',
+    }
+    
+    # Normalize tags in paths
+    if 'paths' in result:
+        for path, methods in result['paths'].items():
+            for method, operation in methods.items():
+                if isinstance(operation, dict) and 'tags' in operation:
+                    normalized_tags = []
+                    for tag in operation['tags']:
+                        # Normalize to canonical form (case-insensitive)
+                        tag_lower = tag.lower()
+                        if tag_lower in canonical_tags:
+                            normalized_tag = canonical_tags[tag_lower]
+                            if normalized_tag not in normalized_tags:
+                                normalized_tags.append(normalized_tag)
+                        else:
+                            # Keep original if not in canonical list
+                            if tag not in normalized_tags:
+                                normalized_tags.append(tag)
+                    operation['tags'] = normalized_tags
+    
+    # Normalize tags list
+    if 'tags' in result:
+        seen_tags = {}
+        normalized_tag_list = []
+        for tag in result['tags']:
+            if isinstance(tag, dict) and 'name' in tag:
+                tag_name = tag['name']
+                tag_lower = tag_name.lower()
+                # Use canonical name if available
+                if tag_lower in canonical_tags:
+                    canonical_name = canonical_tags[tag_lower]
+                    if canonical_name not in seen_tags:
+                        tag['name'] = canonical_name
+                        normalized_tag_list.append(tag)
+                        seen_tags[canonical_name] = True
+                else:
+                    # Keep original if not in canonical list
+                    if tag_name not in seen_tags:
+                        normalized_tag_list.append(tag)
+                        seen_tags[tag_name] = True
+        result['tags'] = normalized_tag_list
+    
+    return result
+
+
 # DRF Spectacular (OpenAPI)
 SPECTACULAR_SETTINGS = {
     'TITLE': 'Academy CRM API',
@@ -424,7 +487,9 @@ SPECTACULAR_SETTINGS = {
     # Make schema generation work without database
     'DISABLE_ERRORS_AND_WARNINGS': False,
     'PREPROCESSING_HOOKS': [],
-    'POSTPROCESSING_HOOKS': [],
+    'POSTPROCESSING_HOOKS': [
+        'academy_crm.settings.base.normalize_swagger_tags',
+    ],
     # Cache schema generation
     'SCHEMA_PATH_PREFIX_TRIM': False,  # Keep full paths with /api/v1/ prefix in schema
     'SCHEMA_COERCE_PATH_PK': True,
