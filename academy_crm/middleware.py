@@ -53,6 +53,36 @@ class RenderCommonMiddleware(CommonMiddleware):
             raise
 
 
+class AuthorizationHeaderNormalizationMiddleware(MiddlewareMixin):
+    """
+    Middleware to normalize malformed Authorization headers.
+    
+    Fixes common issues like "Bearer Bearer <token>" which can occur when
+    Swagger UI automatically adds "Bearer " prefix and users also include it.
+    """
+    
+    def process_request(self, request):
+        """Normalize Authorization header before authentication."""
+        auth_header = request.META.get('HTTP_AUTHORIZATION', '')
+        
+        if auth_header:
+            # Handle malformed headers like "Bearer Bearer <token>"
+            parts = auth_header.split()
+            
+            # If we have multiple "Bearer" prefixes, normalize to single "Bearer <token>"
+            if len(parts) > 2 and parts[0].upper() == 'BEARER' and parts[1].upper() == 'BEARER':
+                # Extract the actual token (everything after the Bearer prefixes)
+                token = ' '.join(parts[2:])  # Join in case token has spaces (shouldn't, but safe)
+                # Reconstruct with single "Bearer"
+                request.META['HTTP_AUTHORIZATION'] = f'Bearer {token}'
+            elif len(parts) >= 2 and parts[0].upper() == 'BEARER':
+                # Already correctly formatted, but ensure it's properly normalized
+                token = ' '.join(parts[1:])
+                request.META['HTTP_AUTHORIZATION'] = f'Bearer {token}'
+        
+        return None
+
+
 class QueryProfilingMiddleware(MiddlewareMixin):
     """
     Middleware to profile database queries for performance analysis.

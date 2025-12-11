@@ -64,6 +64,7 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',  # Serve static files in production
     'academy_crm.middleware.RenderHostMiddleware',  # Allow Render subdomains
+    'academy_crm.middleware.AuthorizationHeaderNormalizationMiddleware',  # Normalize malformed Authorization headers (before auth)
     'subscriptions.middleware.TenantMiddleware',  # Multi-tenant organization identification (early in chain)
     'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
