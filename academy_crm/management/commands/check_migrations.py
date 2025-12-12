@@ -6,6 +6,7 @@ from django.core.management.base import BaseCommand
 from django.core.management import call_command
 from django.db import connection
 from django.apps import apps
+from django.db.migrations.recorder import MigrationRecorder
 from io import StringIO
 
 
@@ -65,9 +66,10 @@ class Command(BaseCommand):
             # Use showmigrations to get status
             try:
                 output = StringIO()
-                call_command('showmigrations', app_name, stdout=output, stderr=output, no_color=True)
+                call_command('showmigrations', app_name, stdout=output, stderr=output, no_color=True, verbosity=0)
                 output.seek(0)
-                lines = output.readlines()
+                content = output.getvalue()
+                lines = content.split('\n')
             except Exception as e:
                 self.stdout.write(
                     self.style.ERROR(f'  ❌ Error checking migrations: {e}')
@@ -77,31 +79,78 @@ class Command(BaseCommand):
             pending = []
             applied = []
             
+            # Parse showmigrations output
+            # Format can be:
+            # gallery
+            #  [X] 0001_initial
+            #  [X] 0002_work_file_object
+            #  [ ] 0003_alter_work_file_object
+            # Or just:
+            #  [X] 0001_initial
+            #  [X] 0002_work_file_object
+            
             for line in lines:
                 line = line.strip()
                 if not line:
                     continue
                 
-                # Parse showmigrations output
-                # Format: [X] 0001_initial or [ ] 0001_initial
-                if line.startswith('[X]') or line.startswith('[x]'):
-                    migration_name = line[3:].strip()
-                    applied.append(migration_name)
-                    total_applied += 1
-                elif line.startswith('[ ]'):
-                    migration_name = line[3:].strip()
-                    pending.append(migration_name)
-                    total_pending += 1
-                elif line.startswith('[') and ']' in line:
-                    # Handle other statuses
-                    status = line[1:line.index(']')]
-                    migration_name = line[line.index(']') + 1:].strip()
-                    if status.strip().upper() == 'X':
-                        applied.append(migration_name)
-                        total_applied += 1
-                    else:
-                        pending.append(migration_name)
-                        total_pending += 1
+                # Skip the app name line (if present)
+                if line == app_name or line.startswith(app_name + '.'):
+                    continue
+                
+                # Parse migration status lines
+                # Look for [X], [x], [ ], or other bracket patterns
+                if '[' in line and ']' in line:
+                    bracket_start = line.index('[')
+                    bracket_end = line.index(']')
+                    status = line[bracket_start + 1:bracket_end].strip()
+                    migration_name = line[bracket_end + 1:].strip()
+                    
+                    # Remove app prefix if present (e.g., "gallery.0001_initial" -> "0001_initial")
+                    if '.' in migration_name:
+                        migration_name = migration_name.split('.', 1)[1]
+                    
+                    if migration_name:  # Only process if we have a migration name
+                        if status.upper() == 'X':
+                            applied.append(migration_name)
+                            total_applied += 1
+                        else:
+                            pending.append(migration_name)
+                            total_pending += 1
+            
+            # If showmigrations didn't find anything, try direct database check
+            if not applied and not pending:
+                try:
+                    # Check database directly for applied migrations
+                    recorder = MigrationRecorder(connection)
+                    applied_migrations = recorder.applied_migrations()
+                    app_migrations = [
+                        name for app, name in applied_migrations 
+                        if app == app_name
+                    ]
+                    if app_migrations:
+                        applied = sorted(app_migrations)
+                        total_applied += len(applied)
+                        # Also check what migrations exist in the filesystem
+                        import os
+                        migrations_path = os.path.join(
+                            os.path.dirname(app_config.path),
+                            'migrations'
+                        )
+                        if os.path.exists(migrations_path):
+                            migration_files = [
+                                f.replace('.py', '') 
+                                for f in os.listdir(migrations_path)
+                                if f.endswith('.py') and f != '__init__.py'
+                            ]
+                            for mig_file in sorted(migration_files):
+                                if mig_file not in applied:
+                                    pending.append(mig_file)
+                                    total_pending += 1
+                except Exception as e:
+                    self.stdout.write(
+                        self.style.WARNING(f'  ⚠️  Could not check database: {e}')
+                    )
             
             if not show_pending_only or pending:
                 if applied:
