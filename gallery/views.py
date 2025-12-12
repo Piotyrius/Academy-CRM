@@ -175,12 +175,6 @@ class WorkViewSet(viewsets.ModelViewSet):
 
         # Upload file to Cloudinary
         try:
-            # Ensure file pointer is at the beginning
-            if hasattr(file, 'seek'):
-                file.seek(0)
-            elif hasattr(file, 'file') and hasattr(file.file, 'seek'):
-                file.file.seek(0)
-
             # Build hierarchical folder structure: org/{org_id}/gallery/user-{user_id}
             # This provides better organization and multi-tenant isolation
             organization = getattr(user, "organization", None)
@@ -189,12 +183,40 @@ class WorkViewSet(viewsets.ModelViewSet):
             else:
                 folder = f"gallery/user-{user.id}"
             
+            # Handle file content for Cloudinary upload
+            # Django's UploadedFile objects are file-like and can be passed directly
+            # Ensure the file pointer is at the beginning before upload
+            file_content = file
+            if hasattr(file, 'file'):
+                # For InMemoryUploadedFile or TemporaryUploadedFile, get the underlying file
+                file_content = file.file
+            elif not hasattr(file, 'read'):
+                # If it doesn't have a read method, it's not a valid file-like object
+                raise ValueError(f"Invalid file object type: {type(file)}")
+            
+            # Ensure file pointer is at the beginning
+            if hasattr(file_content, 'seek'):
+                file_content.seek(0)
+            
+            logger.info(
+                f"Uploading to Cloudinary: folder={folder}, "
+                f"file_type={type(file_content).__name__}, user={user.id}"
+            )
+            
             uploaded = cloudinary_service.upload_file(
-                file_content=file.file if hasattr(file, 'file') else file,
+                file_content=file_content,
                 folder=folder,
                 resource_type="auto",
             )
 
+            # Determine visibility from request data or serializer validated data
+            is_public = False
+            if hasattr(serializer, 'validated_data') and serializer.validated_data:
+                is_public = serializer.validated_data.get("is_public", False)
+            else:
+                # Fallback to request data if validated_data is not available
+                is_public = request.data.get("is_public", "false").lower() in ("true", "1", "yes")
+            
             file_obj = FileObject.objects.create(
                 organization=organization,
                 owner_type=FileOwnerType.GALLERY_WORK,
@@ -208,7 +230,7 @@ class WorkViewSet(viewsets.ModelViewSet):
                 size=uploaded.bytes,
                 original_name=file_name,
                 created_by=user,
-                visibility="PUBLIC" if serializer.validated_data.get("is_public") else "PRIVATE",
+                visibility="PUBLIC" if is_public else "PRIVATE",
             )
             instance = serializer.save(owner=user, file_object=file_obj)
             file_obj.owner_id = instance.id
@@ -221,10 +243,14 @@ class WorkViewSet(viewsets.ModelViewSet):
                 ip=request.META.get("REMOTE_ADDR"),
             )
         except Exception as e:
-            # If upload fails, raise exception
+            # If upload fails, raise exception with detailed error information
+            import traceback
+            error_traceback = traceback.format_exc()
             logger.error(
                 f"Cloudinary upload error during gallery work upload: "
-                f"error={str(e)}, user={user.id}, file_name={file_name}"
+                f"error={str(e)}, error_type={type(e).__name__}, "
+                f"user={user.id}, file_name={file_name}, file_size={file_size}, "
+                f"traceback={error_traceback}"
             )
             exc = APIException(
                 detail=f'Failed to upload file to Cloudinary: {str(e)}'
