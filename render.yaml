@@ -8,6 +8,7 @@ services:
     buildCommand: docker build -t academy-crm .
     dockerfilePath: ./Dockerfile
     healthCheckPath: /health/
+    preDeployCommand: bash scripts/pre_deploy.sh
     envVars:
       # Django Settings
       - key: DJANGO_SETTINGS_MODULE
@@ -74,6 +75,7 @@ services:
     buildCommand: docker build -t academy-crm-staging .
     dockerfilePath: ./Dockerfile
     healthCheckPath: /health/
+    preDeployCommand: bash scripts/pre_deploy.sh
     envVars:
       # Django Settings
       - key: DJANGO_SETTINGS_MODULE
