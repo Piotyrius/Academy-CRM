@@ -79,7 +79,7 @@ def get_student_financial_queryset(params: Dict[str, Any]) -> QuerySet:
 
     # Join payments by student (and optionally cohort/program if modeled that way)
     qs = qs.annotate(
-        total_paid=Sum("student__payments__amount"),
+        total_paid=Sum("student__student_payments__amount"),
     )
 
     return qs

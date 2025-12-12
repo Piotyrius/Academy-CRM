@@ -133,10 +133,23 @@ class DocumentViewSet(viewsets.ModelViewSet):
                 elif hasattr(file, 'file') and hasattr(file.file, 'seek'):
                     file.file.seek(0)
 
+                # Determine resource type based on file MIME type
+                # Cloudinary supports: image, video, raw (for documents, PDFs, text files, etc.)
+                content_type = file.content_type or ""
+                mime_type = content_type.lower()
+                
+                if mime_type.startswith('image/'):
+                    resource_type = "image"
+                elif mime_type.startswith('video/'):
+                    resource_type = "video"
+                else:
+                    # For all other files (PDFs, text files, documents, etc.), use "raw"
+                    resource_type = "raw"
+
                 uploaded = cloudinary_service.upload_file(
                     file_content=file.file if hasattr(file, 'file') else file,
                     folder=folder,
-                    resource_type="auto",
+                    resource_type=resource_type,
                 )
 
                 file_obj = FileObject.objects.create(

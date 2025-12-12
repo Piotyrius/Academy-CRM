@@ -185,13 +185,42 @@ class CloudinaryService:
             URL string
         """
         try:
+            img = cloudinary.CloudinaryImage(public_id)
             if transformation:
-                url = cloudinary.CloudinaryImage(public_id).build_url(
-                    transformation=transformation,
+                # Parse transformation string into Cloudinary SDK format
+                # Format: "w_50,h_50,c_fill,g_face" -> {"width": 50, "height": 50, "crop": "fill", "gravity": "face"}
+                transformations = {}
+                parts = transformation.split(',')
+                for part in parts:
+                    part = part.strip()
+                    if part.startswith('w_'):
+                        try:
+                            transformations['width'] = int(part.split('_')[1])
+                        except (ValueError, IndexError):
+                            pass
+                    elif part.startswith('h_'):
+                        try:
+                            transformations['height'] = int(part.split('_')[1])
+                        except (ValueError, IndexError):
+                            pass
+                    elif part.startswith('c_'):
+                        transformations['crop'] = part.split('_', 1)[1] if '_' in part else part
+                    elif part.startswith('g_'):
+                        transformations['gravity'] = part.split('_', 1)[1] if '_' in part else part
+                    elif part.startswith('f_'):
+                        transformations['format'] = part.split('_', 1)[1] if '_' in part else part
+                    elif part.startswith('q_'):
+                        try:
+                            transformations['quality'] = part.split('_')[1]
+                        except (ValueError, IndexError):
+                            pass
+                
+                url = img.build_url(
+                    transformation=transformations if transformations else None,
                     secure=secure
                 )
             else:
-                url = cloudinary.CloudinaryImage(public_id).build_url(secure=secure)
+                url = img.build_url(secure=secure)
 
             return url
         except Exception as e:
