@@ -251,9 +251,11 @@ class WorkViewSet(viewsets.ModelViewSet):
             
             # Save Work instance (without media field - we use file_object instead)
             try:
-                # Exclude media from validated_data to prevent serializer from trying to save it
+                # Exclude media and owner from validated_data to prevent conflicts
+                # We set owner explicitly and handle media via file_object
                 save_data = serializer.validated_data.copy() if hasattr(serializer, 'validated_data') and serializer.validated_data else {}
                 save_data.pop('media', None)  # Remove media field if present
+                save_data.pop('owner', None)  # Remove owner field if present (we set it explicitly)
                 instance = serializer.save(owner=user, file_object=file_obj, **save_data)
             except Exception as e:
                 # If Work creation fails, try to clean up the FileObject
