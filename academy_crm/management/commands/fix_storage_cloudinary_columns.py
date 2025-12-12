@@ -150,4 +150,63 @@ class Command(BaseCommand):
                 self.stdout.write(
                     self.style.ERROR('❌ No Cloudinary columns found!')
                 )
+            
+            # Fix drive_file_id and drive_folder_id to allow NULL
+            self.stdout.write('')
+            self.stdout.write('Checking drive_file_id and drive_folder_id constraints...')
+            
+            try:
+                # Check if drive_file_id allows NULL
+                cursor.execute("""
+                    SELECT is_nullable 
+                    FROM information_schema.columns 
+                    WHERE table_name = 'storage_files' 
+                    AND column_name = 'drive_file_id'
+                """)
+                result = cursor.fetchone()
+                if result and result[0] == 'NO':
+                    if dry_run:
+                        self.stdout.write(
+                            self.style.WARNING('⚠️  Would make drive_file_id nullable')
+                        )
+                    else:
+                        cursor.execute(
+                            'ALTER TABLE storage_files ALTER COLUMN drive_file_id DROP NOT NULL'
+                        )
+                        self.stdout.write(
+                            self.style.SUCCESS('✅ Made drive_file_id nullable')
+                        )
+                else:
+                    self.stdout.write(
+                        self.style.SUCCESS('✅ drive_file_id already allows NULL')
+                    )
+                
+                # Check if drive_folder_id allows NULL
+                cursor.execute("""
+                    SELECT is_nullable 
+                    FROM information_schema.columns 
+                    WHERE table_name = 'storage_files' 
+                    AND column_name = 'drive_folder_id'
+                """)
+                result = cursor.fetchone()
+                if result and result[0] == 'NO':
+                    if dry_run:
+                        self.stdout.write(
+                            self.style.WARNING('⚠️  Would make drive_folder_id nullable')
+                        )
+                    else:
+                        cursor.execute(
+                            'ALTER TABLE storage_files ALTER COLUMN drive_folder_id DROP NOT NULL'
+                        )
+                        self.stdout.write(
+                            self.style.SUCCESS('✅ Made drive_folder_id nullable')
+                        )
+                else:
+                    self.stdout.write(
+                        self.style.SUCCESS('✅ drive_folder_id already allows NULL')
+                    )
+            except Exception as e:
+                self.stdout.write(
+                    self.style.ERROR(f'❌ Error checking/fixing drive columns: {e}')
+                )
 

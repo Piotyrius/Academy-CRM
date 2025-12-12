@@ -225,10 +225,14 @@ class WorkViewSet(viewsets.ModelViewSet):
                     organization=organization,
                     owner_type=FileOwnerType.GALLERY_WORK,
                     owner_id=None,
+                    # Cloudinary fields
                     cloudinary_public_id=uploaded.public_id,
                     cloudinary_folder=uploaded.folder,
                     cloudinary_url=uploaded.secure_url,
                     cloudinary_resource_type=uploaded.resource_type,
+                    # Legacy Drive fields (set to empty string to satisfy NOT NULL constraint if present)
+                    drive_file_id="",  # Empty string for Cloudinary uploads
+                    drive_folder_id="",  # Empty string for Cloudinary uploads
                     logical_path=folder,
                     mime_type=file_content_type,
                     size=uploaded.bytes,
