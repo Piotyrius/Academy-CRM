@@ -5,6 +5,8 @@ from .models import Work, WorkStatus
 
 class WorkSerializer(serializers.ModelSerializer):
     media_url = serializers.SerializerMethodField()
+    media = serializers.FileField(required=False, allow_null=True, write_only=True)
+    
     class Meta:
         model = Work
         fields = [

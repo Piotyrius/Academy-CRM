@@ -92,6 +92,8 @@ class WorkViewSet(viewsets.ModelViewSet):
         }
     )
     def create(self, request, *args, **kwargs):
+        # The serializer has media field as write_only=True, so it won't interfere
+        # We handle the actual file upload in perform_create
         return super().create(request, *args, **kwargs)
 
     def get_queryset(self):
@@ -217,31 +219,77 @@ class WorkViewSet(viewsets.ModelViewSet):
                 # Fallback to request data if validated_data is not available
                 is_public = request.data.get("is_public", "false").lower() in ("true", "1", "yes")
             
-            file_obj = FileObject.objects.create(
-                organization=organization,
-                owner_type=FileOwnerType.GALLERY_WORK,
-                owner_id=None,
-                cloudinary_public_id=uploaded.public_id,
-                cloudinary_folder=uploaded.folder,
-                cloudinary_url=uploaded.secure_url,
-                cloudinary_resource_type=uploaded.resource_type,
-                logical_path=folder,
-                mime_type=file_content_type,
-                size=uploaded.bytes,
-                original_name=file_name,
-                created_by=user,
-                visibility="PUBLIC" if is_public else "PRIVATE",
-            )
-            instance = serializer.save(owner=user, file_object=file_obj)
-            file_obj.owner_id = instance.id
-            file_obj.save(update_fields=["owner_id"])
+            # Create FileObject record
+            try:
+                file_obj = FileObject.objects.create(
+                    organization=organization,
+                    owner_type=FileOwnerType.GALLERY_WORK,
+                    owner_id=None,
+                    cloudinary_public_id=uploaded.public_id,
+                    cloudinary_folder=uploaded.folder,
+                    cloudinary_url=uploaded.secure_url,
+                    cloudinary_resource_type=uploaded.resource_type,
+                    logical_path=folder,
+                    mime_type=file_content_type,
+                    size=uploaded.bytes,
+                    original_name=file_name,
+                    created_by=user,
+                    visibility="PUBLIC" if is_public else "PRIVATE",
+                )
+            except Exception as e:
+                logger.error(
+                    f"Failed to create FileObject: error={str(e)}, "
+                    f"user={user.id}, file_name={file_name}"
+                )
+                raise APIException(
+                    detail=f'Failed to create file record: {str(e)}'
+                ) from e
+            
+            # Save Work instance (without media field - we use file_object instead)
+            try:
+                # Exclude media from validated_data to prevent serializer from trying to save it
+                save_data = serializer.validated_data.copy() if hasattr(serializer, 'validated_data') and serializer.validated_data else {}
+                save_data.pop('media', None)  # Remove media field if present
+                instance = serializer.save(owner=user, file_object=file_obj, **save_data)
+            except Exception as e:
+                # If Work creation fails, try to clean up the FileObject
+                try:
+                    file_obj.delete()
+                except Exception:
+                    pass
+                logger.error(
+                    f"Failed to create Work instance: error={str(e)}, "
+                    f"user={user.id}, file_name={file_name}"
+                )
+                raise APIException(
+                    detail=f'Failed to create gallery work: {str(e)}'
+                ) from e
+            
+            # Update FileObject with the Work instance ID
+            try:
+                file_obj.owner_id = instance.id
+                file_obj.save(update_fields=["owner_id"])
+            except Exception as e:
+                logger.warning(
+                    f"Failed to update FileObject owner_id: error={str(e)}, "
+                    f"file_obj={file_obj.id}, work={instance.id}"
+                )
+                # Non-critical error, continue
 
-            FileActivity.objects.create(
-                file=file_obj,
-                user=user,
-                action="uploaded",
-                ip=request.META.get("REMOTE_ADDR"),
-            )
+            # Create FileActivity record (non-critical, log but don't fail)
+            try:
+                FileActivity.objects.create(
+                    file=file_obj,
+                    user=user,
+                    action="uploaded",
+                    ip=request.META.get("REMOTE_ADDR") or request.META.get("HTTP_X_FORWARDED_FOR", "").split(",")[0].strip() or "unknown",
+                )
+            except Exception as e:
+                logger.warning(
+                    f"Failed to create FileActivity: error={str(e)}, "
+                    f"file_obj={file_obj.id}, user={user.id}"
+                )
+                # Non-critical error, continue
         except Exception as e:
             # If upload fails, raise exception with detailed error information
             import traceback
