@@ -157,7 +157,9 @@ This link will expire in 7 days.''',
         
         try:
             from catalog.models import Cohort
-            cohort = Cohort.objects.select_for_update().get(id=cohort_id)
+            # Initial fetch without locking; we'll acquire a row lock later inside
+            # the surrounding transaction.atomic() block when we actually modify state.
+            cohort = Cohort.objects.get(id=cohort_id)
         except Cohort.DoesNotExist:
             return Response(
                 {'error': 'Cohort not found'},
