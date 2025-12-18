@@ -25,80 +25,28 @@ AVAILABLE_MODULES = [
 
 def get_enabled_modules(organization):
     """
-    Get list of enabled modules for an organization based on their subscription.
-    
-    Args:
-        organization: Organization instance
-        
-    Returns:
-        list: List of enabled module names
+    Get list of enabled modules for an organization.
+
+    The subscription gating layer has been disabled, so we now always return
+    the full list of AVAILABLE_MODULES. This prevents feature checks from
+    blocking access when no subscription/plan is configured.
     """
-    if not organization:
-        return []
-    
-    # Cache key for enabled modules
-    cache_key = f'org_{organization.id}_enabled_modules'
-    
-    # Try to get from cache
-    enabled_modules = cache.get(cache_key)
-    if enabled_modules is not None:
-        return enabled_modules
-    
-    # Get subscription
-    try:
-        subscription = organization.subscription
-    except Subscription.DoesNotExist:
-        # No subscription - return empty list or default modules
-        enabled_modules = ['accounts']  # Always enable accounts
-        cache.set(cache_key, enabled_modules, 300)  # Cache for 5 minutes
-        return enabled_modules
-    
-    # Check if subscription is active
-    if not subscription.is_active:
-        enabled_modules = ['accounts']  # Only accounts if subscription inactive
-        cache.set(cache_key, enabled_modules, 300)
-        return enabled_modules
-    
-    # Get enabled features from plan
-    plan_features = PlanFeature.objects.filter(
-        plan=subscription.plan,
-        enabled=True
-    ).values_list('module_name', flat=True)
-    
-    enabled_modules = list(plan_features)
-    
-    # Always include accounts module
-    if 'accounts' not in enabled_modules:
-        enabled_modules.append('accounts')
-    
-    # Cache for 5 minutes
-    cache.set(cache_key, enabled_modules, 300)
-    
-    return enabled_modules
+    # Previously this depended on Subscription / PlanFeature records.
+    # We intentionally ignore subscription state now.
+    return list(AVAILABLE_MODULES)
 
 
 def has_feature(organization, module_name):
     """
     Check if an organization has access to a specific module/feature.
-    
-    Args:
-        organization: Organization instance
-        module_name: Name of the module to check
-        
-    Returns:
-        bool: True if organization has access to the module
+
+    Subscription-based feature gating has been turned off, so this now always
+    returns True for known modules. This ensures FeatureRequiredMixin never
+    blocks access due to missing subscription data.
     """
-    if not organization:
-        return False
-    
-    # Accounts is always enabled
-    if module_name == 'accounts':
-        return True
-    
-    # Get enabled modules
-    enabled_modules = get_enabled_modules(organization)
-    
-    return module_name in enabled_modules
+    # If we ever add completely unknown module names, we can still allow them;
+    # the goal is to avoid gating on subscription plans entirely.
+    return True
 
 
 def clear_feature_cache(organization):

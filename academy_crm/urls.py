@@ -53,7 +53,7 @@ urlpatterns = [
     ),
     
     # API v1
-    path('api/v1/subscriptions/', include('subscriptions.urls')),  # Subscription management
+    # Subscriptions API removed - subscriptions are not exposed via public API anymore
     path('api/v1/', include('accounts.urls')),
     path('api/v1/catalog/', include('catalog.urls')),
     path('api/v1/admissions/', include('admissions.urls')),
