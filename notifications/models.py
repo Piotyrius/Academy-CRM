@@ -38,7 +38,7 @@ class Notification(models.Model):
         blank=True,
         help_text=_('Related cohort (if applicable)')
     )
-    message = models.TextField(help_text=_('Notification message'))
+    message = models.TextField(default='', help_text=_('Notification message'))
     is_read = models.BooleanField(default=False, help_text=_('Whether notification has been read'))
     read_at = models.DateTimeField(null=True, blank=True, help_text=_('When notification was read'))
     created_at = models.DateTimeField(auto_now_add=True)
