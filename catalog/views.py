@@ -13,7 +13,7 @@ from drf_spectacular.types import OpenApiTypes
 from subscriptions.mixins import (
     OrganizationFilterMixin, FeatureRequiredMixin, OrganizationAutoSetMixin
 )
-from .models import Program, Course, Cohort, Session
+from .models import Program, Course, Cohort, Session, CohortStatus
 from admissions.models import EnrollmentStatus
 from .serializers import (
     ProgramSerializer,
@@ -347,4 +347,102 @@ class LecturerViewSet(FeatureRequiredMixin, viewsets.ViewSet):
             sessions = sessions.filter(start_at__date__lte=date_to)
         
         serializer = SessionSerializer(sessions, many=True, context={'request': request})
+        return Response(serializer.data)
+    
+    @extend_schema(
+        tags=['Catalog'],
+        summary="List cohorts ready to start",
+        description="Retrieve all cohorts that have reached minimum enrollment threshold (admin only).",
+        responses={
+            200: {
+                'type': 'array',
+                'items': {'$ref': '#/components/schemas/Cohort'}
+            },
+            403: {
+                'type': 'object',
+                'properties': {
+                    'error': {'type': 'string'}
+                }
+            }
+        }
+    )
+    @action(detail=False, methods=['get'])
+    def ready_to_start(self, request):
+        """Get cohorts ready to start (admin only)."""
+        if not request.user.is_admin:
+            return Response(
+                {'error': 'Only admins can view cohorts ready to start'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        queryset = self.get_queryset()
+        # Filter cohorts that are ready to start
+        ready_cohorts = []
+        for cohort in queryset:
+            if cohort.is_ready_to_start and cohort.status == CohortStatus.PLANNED:
+                ready_cohorts.append(cohort)
+        
+        serializer = self.get_serializer(ready_cohorts, many=True)
+        return Response(serializer.data)
+    
+    @extend_schema(
+        tags=['Catalog'],
+        summary="Start a cohort",
+        description="Manually start a cohort by changing its status to ENROLLING or ACTIVE (admin only).",
+        request={
+            'type': 'object',
+            'properties': {
+                'status': {
+                    'type': 'string',
+                    'enum': ['ENROLLING', 'ACTIVE'],
+                    'description': 'New status for the cohort'
+                }
+            }
+        },
+        responses={
+            200: {
+                '$ref': '#/components/schemas/Cohort'
+            },
+            400: {
+                'type': 'object',
+                'properties': {
+                    'error': {'type': 'string'}
+                }
+            },
+            403: {
+                'type': 'object',
+                'properties': {
+                    'error': {'type': 'string'}
+                }
+            }
+        }
+    )
+    @action(detail=True, methods=['post'])
+    def start_cohort(self, request, pk=None):
+        """Manually start a cohort (admin only)."""
+        if not request.user.is_admin:
+            return Response(
+                {'error': 'Only admins can start cohorts'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        cohort = self.get_object()
+        new_status = request.data.get('status', CohortStatus.ENROLLING)
+        
+        if new_status not in [CohortStatus.ENROLLING, CohortStatus.ACTIVE]:
+            return Response(
+                {'error': 'Status must be ENROLLING or ACTIVE'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if not cohort.is_ready_to_start:
+            return Response(
+                {'error': 'Cohort has not reached minimum enrollment threshold'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        cohort.status = new_status
+        cohort.save()
+        
+        serializer = self.get_serializer(cohort)
         return Response(serializer.data)

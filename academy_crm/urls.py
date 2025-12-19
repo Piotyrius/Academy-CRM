@@ -66,6 +66,7 @@ urlpatterns = [
     path('api/v1/gallery/', include('gallery.urls')),
     path('api/v1/', include('storage.urls')),
     path('api/v1/payments/', include('payments.urls')),
+    path('api/v1/', include('notifications.urls')),
 ]
 
 # Serve media files in development

@@ -20,6 +20,7 @@ from accounts.models import Role
 from .models import Application, Enrollment, ApplicationStatus, EnrollmentStatus
 from .serializers import ApplicationSerializer, EnrollmentSerializer
 from .permissions import IsAdminOrLecturerOwner
+from catalog.models import CohortStatus
 
 class ApplicationViewSet(
     FeatureRequiredMixin,
@@ -147,34 +148,29 @@ This link will expire in 7 days.''',
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Get cohort from request
-        cohort_id = request.data.get('cohort_id')
-        if not cohort_id:
-            return Response(
-                {'error': 'cohort_id is required'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+        # Get course from request (optional, defaults to first course in program)
+        course_id = request.data.get('course_id')
+        if course_id:
+            try:
+                from catalog.models import Course
+                course = Course.objects.get(id=course_id, program=application.program)
+            except Course.DoesNotExist:
+                return Response(
+                    {'error': 'Course not found or does not belong to this program'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+        else:
+            # Default to first course in program
+            course = application.program.courses.first()
+            if not course:
+                return Response(
+                    {'error': 'No courses found in this program'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
         
-        try:
-            from catalog.models import Cohort
-            # Initial fetch without locking; we'll acquire a row lock later inside
-            # the surrounding transaction.atomic() block when we actually modify state.
-            cohort = Cohort.objects.get(id=cohort_id)
-        except Cohort.DoesNotExist:
-            return Response(
-                {'error': 'Cohort not found'},
-                status=status.HTTP_404_NOT_FOUND
-            )
-        
-        # Validate that cohort's program matches application's program
-        if cohort.course.program != application.program:
-            return Response(
-                {
-                    'error': 'Program mismatch',
-                    'detail': f'Application is for program "{application.program.name}" but cohort belongs to program "{cohort.course.program.name}"'
-                },
-                status=status.HTTP_400_BAD_REQUEST
-            )
+        # Get or create cohort using CohortService
+        from catalog.services.cohort_service import CohortService
+        cohort = CohortService.get_or_create_cohort_for_course(course, application.organization)
         
         # Get organization from application or request context
         organization = application.organization
@@ -185,7 +181,7 @@ This link will expire in 7 days.''',
         
         with transaction.atomic():
             # Lock cohort for update to prevent race condition
-            cohort = Cohort.objects.select_for_update().get(id=cohort_id)
+            cohort = Cohort.objects.select_for_update().get(id=cohort.id)
             
             # Enforce subscription limits for users and students if organization is known
             if organization and hasattr(organization, 'can_enroll_student'):
@@ -273,6 +269,22 @@ This link will expire in 7 days.''',
             application.status = ApplicationStatus.ACCEPTED
             application.save()
             
+            # Automatically create invoice for enrollment
+            try:
+                from payments.services.invoice_service import InvoiceService
+                InvoiceService.create_invoice_for_enrollment_auto(
+                    enrollment, 
+                    organization or cohort.organization
+                )
+            except Exception as e:
+                # Log error but don't fail enrollment creation
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.error(f"Failed to create invoice for enrollment {enrollment.id}: {e}")
+            
+            # Check if cohort reached minimum enrollment and notify
+            CohortService.check_and_notify_readiness(cohort)
+            
             # Send password setup email if user was just created
             if user_created and temp_password:
                 self._send_password_setup_email(student, temp_password)
@@ -315,6 +327,44 @@ class EnrollmentViewSet(
             queryset = queryset.filter(cohort__lecturer=user)
         
         return queryset
+    
+    def perform_create(self, serializer):
+        """Auto-create cohort if not provided and auto-create invoice."""
+        from catalog.services.cohort_service import CohortService
+        from payments.services.invoice_service import InvoiceService
+        from catalog.models import Course
+        
+        validated_data = serializer.validated_data
+        organization = validated_data.get('organization') or getattr(self.request.user, 'organization', None)
+        
+        # If cohort not provided, determine from course
+        if 'cohort' not in validated_data or not validated_data.get('cohort'):
+            course = validated_data.get('preferred_course')
+            if not course:
+                raise serializers.ValidationError({
+                    'cohort': 'Cohort or preferred_course must be provided.'
+                })
+            
+            # Get or create cohort for course
+            cohort = CohortService.get_or_create_cohort_for_course(course, organization)
+            validated_data['cohort'] = cohort
+        
+        # Save enrollment
+        enrollment = serializer.save()
+        
+        # Auto-create invoice
+        try:
+            InvoiceService.create_invoice_for_enrollment_auto(
+                enrollment,
+                organization or enrollment.organization
+            )
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Failed to create invoice for enrollment {enrollment.id}: {e}")
+        
+        # Check cohort readiness
+        CohortService.check_and_notify_readiness(enrollment.cohort)
     
     @extend_schema(
         summary="Activate enrollment",
@@ -792,4 +842,77 @@ class EnrollmentViewSet(
                     'detail': str(e)
                 },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    @extend_schema(
+        tags=['Enrollments'],
+        summary="Change enrollment course",
+        description="Change a student's course assignment before cohort starts. Only allowed if cohort status is PLANNED or ENROLLING.",
+        request={
+            'type': 'object',
+            'properties': {
+                'course_id': {
+                    'type': 'string',
+                    'format': 'uuid',
+                    'description': 'UUID of the new course'
+                }
+            },
+            'required': ['course_id']
+        },
+        responses={
+            200: EnrollmentSerializer,
+            400: OpenApiTypes.OBJECT,
+            404: OpenApiTypes.OBJECT,
+        }
+    )
+    @action(detail=True, methods=['post'])
+    def change_course(self, request, pk=None):
+        """Change student's course assignment before cohort starts."""
+        enrollment = self.get_object()
+        course_id = request.data.get('course_id')
+        
+        if not course_id:
+            return Response(
+                {'error': 'course_id is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Check if cohort can be changed (only PLANNED or ENROLLING)
+        if enrollment.cohort.status not in [CohortStatus.PLANNED, CohortStatus.ENROLLING]:
+            return Response(
+                {'error': 'Course can only be changed before cohort starts (status must be PLANNED or ENROLLING)'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            from catalog.models import Course
+            from catalog.services.cohort_service import CohortService
+            
+            new_course = Course.objects.get(id=course_id)
+            
+            # Validate course belongs to same program
+            if new_course.program != enrollment.cohort.course.program:
+                return Response(
+                    {'error': 'New course must belong to the same program'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Get or create cohort for new course
+            new_cohort = CohortService.get_or_create_cohort_for_course(
+                new_course,
+                enrollment.organization
+            )
+            
+            # Update enrollment
+            enrollment.cohort = new_cohort
+            enrollment.preferred_course = new_course
+            enrollment.save()
+            
+            serializer = self.get_serializer(enrollment)
+            return Response(serializer.data)
+            
+        except Course.DoesNotExist:
+            return Response(
+                {'error': 'Course not found'},
+                status=status.HTTP_404_NOT_FOUND
             )

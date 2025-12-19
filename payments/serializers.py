@@ -2,6 +2,7 @@
 Serializers for payments app.
 """
 from rest_framework import serializers
+from django.utils import timezone
 from .models import (
     Pricing, PaymentPlan, Discount, Invoice, Payment,
     PaymentSchedule, PaymentMethod
@@ -47,14 +48,41 @@ class InvoiceSerializer(serializers.ModelSerializer):
     """Serializer for Invoice model."""
     outstanding_amount = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
+    payment_status_display = serializers.SerializerMethodField()
+    days_until_due = serializers.SerializerMethodField()
+    is_overdue = serializers.SerializerMethodField()
     student_name = serializers.CharField(source='enrollment.student.get_full_name', read_only=True)
+    student_email = serializers.EmailField(source='enrollment.student.email', read_only=True)
     cohort_name = serializers.CharField(source='enrollment.cohort.name', read_only=True)
     payment_plan_name = serializers.CharField(source='payment_plan.name', read_only=True)
+    
+    def get_payment_status_display(self, obj):
+        """Get payment status display."""
+        from django.utils import timezone
+        if obj.outstanding_amount <= 0:
+            return 'PAID'
+        elif obj.paid_amount > 0:
+            return 'PARTIAL'
+        elif timezone.now().date() > obj.due_date:
+            return 'OVERDUE'
+        else:
+            return 'UNPAID'
+    
+    def get_days_until_due(self, obj):
+        """Calculate days until due date."""
+        from django.utils import timezone
+        delta = obj.due_date - timezone.now().date()
+        return delta.days
+    
+    def get_is_overdue(self, obj):
+        """Check if invoice is overdue."""
+        from django.utils import timezone
+        return timezone.now().date() > obj.due_date and obj.outstanding_amount > 0
     
     class Meta:
         model = Invoice
         fields = '__all__'
-        read_only_fields = ['id', 'invoice_number', 'outstanding_amount', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'invoice_number', 'outstanding_amount', 'created_at', 'updated_at', 'payment_status_display', 'days_until_due', 'is_overdue']
 
 
 class PaymentSerializer(serializers.ModelSerializer):

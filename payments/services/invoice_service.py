@@ -3,6 +3,7 @@ Invoice service for managing invoices.
 """
 import uuid
 from decimal import Decimal
+from datetime import timedelta
 from django.utils import timezone
 from django.db.models import Sum
 from ..models import Invoice, InvoiceStatus
@@ -150,4 +151,44 @@ class InvoiceService:
             invoice.status = InvoiceStatus.ISSUED
             invoice.issued_at = timezone.now()
             invoice.save()
+    
+    @staticmethod
+    def create_invoice_for_enrollment_auto(enrollment, organization, payment_plan=None):
+        """
+        Automatically create invoice for an enrollment with default settings.
+        
+        Args:
+            enrollment: Enrollment instance
+            organization: Organization instance
+            payment_plan: PaymentPlan instance (optional, will use default if not provided)
+            
+        Returns:
+            Invoice instance
+        """
+        from ..models import PaymentPlan, PaymentPlanType
+        from .schedule_service import PaymentScheduleService
+        
+        # Get default payment plan if not provided
+        if not payment_plan:
+            payment_plan = PricingService.get_default_payment_plan(organization)
+        
+        # Create invoice using existing method
+        invoice = InvoiceService.create_invoice_for_enrollment(
+            enrollment=enrollment,
+            payment_plan=payment_plan,
+            discounts=None
+        )
+        
+        # Set due date to 2-3 weeks from now (default 2 weeks)
+        invoice.due_date = timezone.now().date() + timedelta(weeks=2)
+        
+        # Auto-issue invoice
+        invoice.status = InvoiceStatus.ISSUED
+        invoice.issued_at = timezone.now()
+        invoice.save()
+        
+        # Create payment schedule
+        PaymentScheduleService.create_payment_schedule(invoice, payment_plan)
+        
+        return invoice
 

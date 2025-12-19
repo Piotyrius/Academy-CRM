@@ -7,6 +7,8 @@ from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError, PermissionDenied
 from django.http import Http404
 from django.utils import timezone
+from drf_spectacular.utils import extend_schema, OpenApiParameter
+from drf_spectacular.types import OpenApiTypes
 from subscriptions.mixins import (
     OrganizationFilterMixin, OrganizationAutoSetMixin
 )
@@ -186,6 +188,148 @@ class InvoiceViewSet(
         invoice = self.get_object()
         InvoiceService.issue_invoice(invoice)
         serializer = self.get_serializer(invoice)
+        return Response(serializer.data)
+    
+    @extend_schema(
+        tags=['Payments'],
+        summary="Get payment status for cohort",
+        description="Get payment status for all students in a cohort (admin only).",
+        parameters=[
+            OpenApiParameter(
+                name='cohort_id',
+                type=OpenApiTypes.UUID,
+                location=OpenApiParameter.QUERY,
+                description='Cohort UUID',
+                required=True
+            )
+        ],
+        responses={
+            200: {
+                'type': 'object',
+                'properties': {
+                    'cohort_name': {'type': 'string'},
+                    'total_expected': {'type': 'number'},
+                    'total_paid': {'type': 'number'},
+                    'outstanding': {'type': 'number'},
+                    'students': {
+                        'type': 'array',
+                        'items': {
+                            'type': 'object',
+                            'properties': {
+                                'student_name': {'type': 'string'},
+                                'student_email': {'type': 'string'},
+                                'invoice_number': {'type': 'string'},
+                                'total_amount': {'type': 'number'},
+                                'paid_amount': {'type': 'number'},
+                                'outstanding_amount': {'type': 'number'},
+                                'status': {'type': 'string'}
+                            }
+                        }
+                    }
+                }
+            },
+            403: OpenApiTypes.OBJECT,
+            404: OpenApiTypes.OBJECT,
+        }
+    )
+    @action(detail=False, methods=['get'])
+    def cohort_payment_summary(self, request):
+        """Get payment summary for a cohort (admin only)."""
+        from catalog.models import Cohort
+        from decimal import Decimal
+        
+        if not request.user.is_admin:
+            return Response(
+                {'error': 'Only admins can view cohort payment summaries'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        cohort_id = request.query_params.get('cohort_id')
+        if not cohort_id:
+            return Response(
+                {'error': 'cohort_id parameter is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            cohort = Cohort.objects.get(id=cohort_id)
+        except Cohort.DoesNotExist:
+            return Response(
+                {'error': 'Cohort not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Get all enrollments for this cohort
+        enrollments = cohort.enrollments.filter(status='ACTIVE').select_related('student')
+        
+        students_data = []
+        total_expected = Decimal('0.00')
+        total_paid = Decimal('0.00')
+        
+        for enrollment in enrollments:
+            # Get invoice for enrollment
+            invoice = enrollment.invoices.first()
+            if invoice:
+                total_expected += invoice.total_amount
+                total_paid += invoice.paid_amount
+                
+                students_data.append({
+                    'student_name': enrollment.student.get_full_name(),
+                    'student_email': enrollment.student.email,
+                    'invoice_number': invoice.invoice_number,
+                    'total_amount': float(invoice.total_amount),
+                    'paid_amount': float(invoice.paid_amount),
+                    'outstanding_amount': float(invoice.outstanding_amount),
+                    'status': invoice.status
+                })
+            else:
+                # No invoice yet
+                students_data.append({
+                    'student_name': enrollment.student.get_full_name(),
+                    'student_email': enrollment.student.email,
+                    'invoice_number': None,
+                    'total_amount': 0.0,
+                    'paid_amount': 0.0,
+                    'outstanding_amount': 0.0,
+                    'status': 'NO_INVOICE'
+                })
+        
+        return Response({
+            'cohort_name': cohort.name,
+            'cohort_id': str(cohort.id),
+            'total_expected': float(total_expected),
+            'total_paid': float(total_paid),
+            'outstanding': float(total_expected - total_paid),
+            'students': students_data
+        })
+    
+    @extend_schema(
+        tags=['Payments'],
+        summary="Get student's own payments",
+        description="Get all invoices and payments for the current student.",
+        responses={
+            200: {
+                'type': 'array',
+                'items': {'$ref': '#/components/schemas/Invoice'}
+            },
+            403: OpenApiTypes.OBJECT,
+        }
+    )
+    @action(detail=False, methods=['get'])
+    def my_payments(self, request):
+        """Get current student's invoices and payments."""
+        if not request.user.is_student:
+            return Response(
+                {'error': 'Only students can access this endpoint'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Get all invoices for student's enrollments
+        invoices = Invoice.objects.filter(
+            enrollment__student=request.user
+        ).select_related('enrollment', 'enrollment__cohort', 'payment_plan').order_by('-created_at')
+        
+        serializer = self.get_serializer(invoices, many=True)
         return Response(serializer.data)
 
 

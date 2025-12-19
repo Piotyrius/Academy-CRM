@@ -5,7 +5,7 @@ import uuid
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 from accounts.models import User, Role
-from catalog.models import Program, Cohort
+from catalog.models import Program, Cohort, Course
 
 
 class ApplicationStatus(models.TextChoices):
@@ -125,6 +125,14 @@ class Enrollment(models.Model):
         limit_choices_to={'role': Role.STUDENT}
     )
     cohort = models.ForeignKey(Cohort, on_delete=models.CASCADE, related_name='enrollments')
+    preferred_course = models.ForeignKey(
+        Course,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='preferred_enrollments',
+        help_text=_('Preferred course (can be changed by admin before cohort starts)')
+    )
     status = models.CharField(
         max_length=20,
         choices=EnrollmentStatus.choices,

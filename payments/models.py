@@ -321,6 +321,8 @@ class Invoice(models.Model):
     )
     due_date = models.DateField(help_text=_('Payment due date'))
     issued_at = models.DateTimeField(null=True, blank=True, help_text=_('Invoice issued date'))
+    email_sent = models.BooleanField(default=False, help_text=_('Whether invoice email has been sent'))
+    email_sent_at = models.DateTimeField(null=True, blank=True, help_text=_('When invoice email was sent'))
     notes = models.TextField(blank=True, help_text=_('Additional notes'))
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

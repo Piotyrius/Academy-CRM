@@ -110,7 +110,8 @@ class Cohort(models.Model):
         related_name='cohorts',
         limit_choices_to={'role': Role.LECTURER}
     )
-    capacity = models.IntegerField(validators=[MinValueValidator(1)], help_text=_('Maximum number of students'))
+    capacity = models.IntegerField(validators=[MinValueValidator(1)], help_text=_('Maximum number of students'), default=20)
+    min_enrollment = models.IntegerField(validators=[MinValueValidator(1)], help_text=_('Minimum number of students required to start'), default=8)
     start_date = models.DateField(help_text=_('Cohort start date'))
     end_date = models.DateField(help_text=_('Cohort end date'))
     status = models.CharField(
@@ -146,6 +147,25 @@ class Cohort(models.Model):
     def is_full(self):
         """Check if cohort is at capacity."""
         return self.current_enrollment_count >= self.capacity
+    
+    @property
+    def is_ready_to_start(self):
+        """Check if cohort has reached minimum enrollment threshold."""
+        return self.current_enrollment_count >= self.min_enrollment
+    
+    @property
+    def can_accept_enrollment(self):
+        """Check if cohort can accept new enrollments."""
+        return (
+            self.status in [CohortStatus.PLANNED, CohortStatus.ENROLLING] and
+            not self.is_full
+        )
+    
+    def clean(self):
+        """Validate cohort fields."""
+        from django.core.exceptions import ValidationError
+        if self.capacity < self.min_enrollment:
+            raise ValidationError(_('Capacity must be greater than or equal to minimum enrollment.'))
 
 
 class Session(models.Model):

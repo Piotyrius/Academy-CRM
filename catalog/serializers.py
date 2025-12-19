@@ -48,10 +48,22 @@ class CohortSerializer(serializers.ModelSerializer):
         count = self.get_current_enrollment_count(obj)
         return count >= obj.capacity
     
+    is_ready_to_start = serializers.SerializerMethodField()
+    can_accept_enrollment = serializers.SerializerMethodField()
+    
+    def get_is_ready_to_start(self, obj):
+        """Check if cohort is ready to start."""
+        count = self.get_current_enrollment_count(obj)
+        return count >= obj.min_enrollment
+    
+    def get_can_accept_enrollment(self, obj):
+        """Check if cohort can accept new enrollments."""
+        return obj.can_accept_enrollment
+    
     class Meta:
         model = Cohort
         fields = '__all__'
-        read_only_fields = ['id', 'created_at', 'updated_at', 'current_enrollment_count', 'is_full']
+        read_only_fields = ['id', 'created_at', 'updated_at', 'current_enrollment_count', 'is_full', 'is_ready_to_start', 'can_accept_enrollment']
 
 
 class SessionSerializer(serializers.ModelSerializer):
