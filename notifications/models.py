@@ -22,6 +22,8 @@ class Notification(models.Model):
         'accounts.User',
         on_delete=models.CASCADE,
         related_name='notifications',
+        null=True,  # Temporarily nullable for migration, will be made required after migration
+        blank=True,
         help_text=_('User who receives this notification')
     )
     notification_type = models.CharField(
