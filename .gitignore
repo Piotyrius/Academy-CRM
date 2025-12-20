@@ -19,6 +19,14 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+MANIFEST
+*.manifest
+*.pyc
+*.pyo
+*.pyd
+*.dll
+*.dylib
+*.exe
 
 # Virtual Environment
 venv/
@@ -32,6 +40,10 @@ local_settings.py
 /media
 /staticfiles
 /static
+*.pot
+*.mo
+db.sqlite3
+db.sqlite3-journal
 
 # Environment variables
 .env
@@ -40,6 +52,10 @@ local_settings.py
 
 # IDE - VSCode/Cursor
 .vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
 .idea/
 *.swp
 *.swo
@@ -51,6 +67,8 @@ local_settings.py
 *.user
 *.userosscache
 *.sln.docstates
+*.sublime-project
+*.sublime-workspace
 
 # OS
 .DS_Store
@@ -60,12 +78,20 @@ desktop.ini
 # Docker
 .dockerignore
 
-# Coverage
+# Coverage and Testing
 .coverage
 htmlcov/
 .pytest_cache/
 .tox/
 .hypothesis/
+.cache
+nosetests.xml
+coverage/
+*.cover
+coverage.xml
+test-results.xml
+test-report.txt
+test-output.txt
 
 # Celery
 celerybeat-schedule
@@ -75,6 +101,9 @@ celerybeat.pid
 # Temporary SQL setup scripts (not needed in repo)
 *.sql
 !**/migrations/*.sql
+*.db
+*.sqlite
+*.sqlite3
 
 # Temporary setup/test scripts
 test_*.py
@@ -82,6 +111,10 @@ test_*.py
 update_*.py
 setup_*.ps1
 setup_*.py
+create_*.sql
+reset_*.sql
+*.test.py
+test-*.py
 
 # Documentation and plan files (ignore all .md except README)
 *.md
@@ -105,3 +138,7 @@ dmypy.json
 *.bak
 *.backup
 *~
+*.tmp
+*.temp
+*.orig
+*.save

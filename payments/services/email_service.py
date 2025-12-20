@@ -144,3 +144,5 @@ Best regards,
             logger.error(f"Failed to send invoice reminder to {student.email}: {e}")
             return False
 
+
+
