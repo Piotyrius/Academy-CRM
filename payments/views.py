@@ -267,20 +267,37 @@ class InvoiceViewSet(
         total_paid = Decimal('0.00')
         
         for enrollment in enrollments:
-            # Get invoice for enrollment
-            invoice = enrollment.invoices.first()
-            if invoice:
-                total_expected += invoice.total_amount
-                total_paid += invoice.paid_amount
+            # Get all invoices for enrollment
+            invoices = enrollment.invoices.all()
+            if invoices.exists():
+                enrollment_total_expected = sum(inv.total_amount for inv in invoices)
+                enrollment_total_paid = sum(inv.paid_amount for inv in invoices)
+                enrollment_outstanding = enrollment_total_expected - enrollment_total_paid
+                
+                total_expected += enrollment_total_expected
+                total_paid += enrollment_total_paid
+                
+                # Get primary invoice (first one)
+                primary_invoice = invoices.first()
+                
+                # Determine payment status
+                from datetime import date
+                payment_status = 'UNPAID'
+                if enrollment_outstanding <= 0:
+                    payment_status = 'PAID'
+                elif enrollment_total_paid > 0:
+                    payment_status = 'PARTIAL'
+                elif primary_invoice.due_date and primary_invoice.due_date < date.today():
+                    payment_status = 'OVERDUE'
                 
                 students_data.append({
                     'student_name': enrollment.student.get_full_name(),
                     'student_email': enrollment.student.email,
-                    'invoice_number': invoice.invoice_number,
-                    'total_amount': float(invoice.total_amount),
-                    'paid_amount': float(invoice.paid_amount),
-                    'outstanding_amount': float(invoice.outstanding_amount),
-                    'status': invoice.status
+                    'invoice_number': primary_invoice.invoice_number,
+                    'total_amount': float(enrollment_total_expected),
+                    'total_paid': float(enrollment_total_paid),
+                    'outstanding': float(enrollment_outstanding),
+                    'payment_status': payment_status
                 })
             else:
                 # No invoice yet
@@ -289,9 +306,9 @@ class InvoiceViewSet(
                     'student_email': enrollment.student.email,
                     'invoice_number': None,
                     'total_amount': 0.0,
-                    'paid_amount': 0.0,
-                    'outstanding_amount': 0.0,
-                    'status': 'NO_INVOICE'
+                    'total_paid': 0.0,
+                    'outstanding': 0.0,
+                    'payment_status': 'UNPAID'
                 })
         
         return Response({

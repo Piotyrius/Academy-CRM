@@ -50,14 +50,15 @@ class NotificationViewSet(OrganizationFilterMixin, viewsets.ModelViewSet):
         }
     )
     @action(detail=True, methods=['post'])
-    def mark_read(self, request, pk=None):
+    def mark_as_read(self, request, pk=None):
         """Mark notification as read."""
-        notification = NotificationService.mark_as_read(pk, request.user)
-        if not notification:
+        notification = self.get_object()
+        if notification.user != request.user and not request.user.is_admin:
             return Response(
-                {'error': 'Notification not found'},
-                status=status.HTTP_404_NOT_FOUND
+                {'detail': 'You do not have permission to mark this notification as read.'},
+                status=status.HTTP_403_FORBIDDEN
             )
+        NotificationService.mark_as_read(notification.id, request.user)
         serializer = self.get_serializer(notification)
         return Response(serializer.data)
     
@@ -77,6 +78,9 @@ class NotificationViewSet(OrganizationFilterMixin, viewsets.ModelViewSet):
     @action(detail=False, methods=['post'])
     def mark_all_read(self, request):
         """Mark all unread notifications as read."""
-        unread_notifications = NotificationService.get_unread_notifications(request.user)
+        unread_notifications = Notification.objects.filter(
+            user=request.user,
+            is_read=False
+        )
         count = unread_notifications.update(is_read=True, read_at=timezone.now())
-        return Response({'marked': count})
+        return Response({'detail': f'{count} notifications marked as read.'})
