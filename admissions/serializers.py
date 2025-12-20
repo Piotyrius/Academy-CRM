@@ -10,7 +10,7 @@ from .models import (
     ApplicationPhone,
 )
 from accounts.models import User
-from catalog.models import Program, Cohort
+from catalog.models import Program, Cohort, Course
 
 
 class ApplicationPhoneSerializer(serializers.ModelSerializer):
@@ -71,22 +71,6 @@ class EnrollmentSerializer(serializers.ModelSerializer):
         fields = '__all__'
         read_only_fields = ['id', 'enrolled_at', 'created_at', 'updated_at']
     
-    def validate(self, attrs):
-        """Validate enrollment data."""
-        attrs = super().validate(attrs)
-        
-        # If course is provided, validate it belongs to program
-        if 'preferred_course' in attrs and attrs.get('preferred_course'):
-            course = attrs['preferred_course']
-            if 'cohort' in attrs and attrs.get('cohort'):
-                cohort = attrs['cohort']
-                if course.program != cohort.course.program:
-                    raise serializers.ValidationError({
-                        'preferred_course': 'Course must belong to the same program as the cohort.'
-                    })
-        
-        return attrs
-    
     def _get_target_organization(self, attrs):
         """
         Determine which organization this enrollment should belong to.
@@ -104,12 +88,25 @@ class EnrollmentSerializer(serializers.ModelSerializer):
     
     def validate(self, attrs):
         """
-        Enforce subscription student limits when creating enrollments.
+        Validate enrollment data and enforce subscription limits.
         """
         attrs = super().validate(attrs)
+        
+        # If course is provided, validate it belongs to program
+        if 'preferred_course' in attrs and attrs.get('preferred_course'):
+            course = attrs['preferred_course']
+            if 'cohort' in attrs and attrs.get('cohort'):
+                cohort = attrs['cohort']
+                if course.program != cohort.course.program:
+                    raise serializers.ValidationError({
+                        'preferred_course': 'Course must belong to the same program as the cohort.'
+                    })
+        
+        # Enforce subscription student limits when creating enrollments
         organization = self._get_target_organization(attrs)
         if organization and hasattr(organization, 'can_enroll_student'):
             allowed, message = organization.can_enroll_student()
             if not allowed:
                 raise serializers.ValidationError({'non_field_errors': [message]})
+        
         return attrs
