@@ -1,0 +1,822 @@
+"""
+Views for accounts app.
+"""
+from rest_framework import viewsets, permissions, status
+from rest_framework.decorators import action, api_view, permission_classes
+from rest_framework.response import Response
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenBlacklistView, TokenRefreshView
+from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
+from drf_spectacular.utils import extend_schema, OpenApiResponse
+from drf_spectacular.types import OpenApiTypes
+from django.contrib.auth import get_user_model
+from django.contrib.auth.tokens import default_token_generator
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
+from django.utils.encoding import force_bytes, force_str
+from django.core.mail import send_mail
+from django.conf import settings
+from .mfa import generate_mfa_secret, verify_totp
+from .serializers import (
+    UserSerializer, UserCreateSerializer, CustomTokenObtainPairSerializer,
+    PasswordResetRequestSerializer, PasswordResetConfirmSerializer,
+    TokenBlacklistRequestSerializer, TokenBlacklistResponseSerializer
+)
+from .permissions import IsAdminOrSelf, IsAdminUser
+from .throttling import LoginAnonThrottle, LoginUserThrottle, PasswordResetAnonThrottle, LogoutThrottle
+
+User = get_user_model()
+
+
+class UserViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for User model.
+    Admins can manage all users, users can view/edit themselves.
+    """
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    filterset_fields = ['role', 'is_active']
+    search_fields = ['email', 'first_name', 'last_name']
+    ordering_fields = ['date_joined', 'last_login', 'email']
+    ordering = ['-date_joined']
+    
+    def get_serializer_class(self):
+        if self.action == 'create':
+            return UserCreateSerializer
+        return UserSerializer
+    
+    def get_serializer_context(self):
+        """Add request to serializer context."""
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
+    
+    def get_permissions(self):
+        # Profile & MFA actions are available to any authenticated user (self only).
+        if self.action in ['me', 'me_update', 'mfa_setup', 'mfa_verify', 'mfa_disable', 'upload_profile_picture']:
+            return [permissions.IsAuthenticated()]
+        if self.action in ['list', 'retrieve', 'update', 'partial_update', 'destroy']:
+            return [permissions.IsAuthenticated(), IsAdminOrSelf()]
+        return [IsAdminUser()]
+    
+    @extend_schema(
+        tags=['Users'],
+        summary="Get current user profile",
+        description="Retrieve the profile information of the currently authenticated user.",
+        responses={
+            200: UserSerializer,
+            401: OpenApiTypes.OBJECT,
+        }
+    )
+    @action(detail=False, methods=['get'])
+    def me(self, request):
+        """Get current user profile."""
+        serializer = self.get_serializer(request.user)
+        return Response(serializer.data)
+    
+    @extend_schema(
+        tags=['Users'],
+        summary="Update current user profile",
+        description="Update the profile information of the currently authenticated user. Only the provided fields will be updated.",
+        request=UserSerializer,
+        responses={
+            200: UserSerializer,
+            400: OpenApiTypes.OBJECT,
+            401: OpenApiTypes.OBJECT,
+        }
+    )
+    @action(detail=False, methods=['patch', 'put'])
+    def me_update(self, request):
+        """Update current user profile."""
+        serializer = self.get_serializer(request.user, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
+
+    @extend_schema(
+        tags=['Users'],
+        summary="Start MFA setup",
+        description=(
+            "Start multi-factor authentication setup for the current user. "
+            "Generates a new TOTP secret and returns it so the frontend can show a QR code. "
+            "MFA is not enabled until `mfa_verify` succeeds."
+        ),
+        responses={
+            200: {
+                'type': 'object',
+                'properties': {
+                    'mfa_secret': {'type': 'string', 'description': 'TOTP secret key for QR code generation'},
+                    'mfa_enabled': {'type': 'boolean', 'description': 'Always false until verified'},
+                }
+            },
+            401: OpenApiTypes.OBJECT,
+        }
+    )
+    @action(detail=False, methods=['post'])
+    def mfa_setup(self, request):
+        """
+        Start MFA setup for the current user.
+
+        Generates a new TOTP secret and returns it so the frontend can show a QR
+        code. MFA is not enabled until `mfa_verify` succeeds.
+        """
+        user = request.user
+        secret = generate_mfa_secret()
+        # Store secret but keep mfa_enabled disabled until verification.
+        user.mfa_secret = secret
+        user.mfa_enabled = False
+        user.save(update_fields=['mfa_secret', 'mfa_enabled'])
+        return Response(
+            {
+                'mfa_secret': secret,
+                'mfa_enabled': False,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+    @extend_schema(
+        tags=['Users'],
+        summary="Verify MFA code",
+        description=(
+            "Verify an MFA code for the current user and enable MFA if valid. "
+            "The user must have called mfa_setup first to generate a secret."
+        ),
+        request={
+            'type': 'object',
+            'properties': {
+                'mfa_code': {'type': 'string', 'description': '6-digit TOTP code from authenticator app'}
+            },
+            'required': ['mfa_code']
+        },
+        responses={
+            200: {
+                'type': 'object',
+                'properties': {
+                    'mfa_enabled': {'type': 'boolean', 'description': 'True if MFA is now enabled'}
+                }
+            },
+            400: {
+                'type': 'object',
+                'properties': {
+                    'detail': {'type': 'string'},
+                    'mfa_code': {'type': 'array', 'items': {'type': 'string'}}
+                }
+            },
+            401: OpenApiTypes.OBJECT,
+        }
+    )
+    @action(detail=False, methods=['post'])
+    def mfa_verify(self, request):
+        """
+        Verify an MFA code for the current user and enable MFA if valid.
+        """
+        user = request.user
+        code = str(request.data.get('mfa_code', '')).strip()
+        secret = getattr(user, 'mfa_secret', None)
+        if not secret:
+            return Response(
+                {'detail': 'MFA is not in setup state for this account.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if not code or not verify_totp(secret, code):
+            return Response(
+                {'mfa_code': ['Invalid or expired MFA code.']},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        user.mfa_enabled = True
+        user.save(update_fields=['mfa_enabled'])
+        return Response({'mfa_enabled': True}, status=status.HTTP_200_OK)
+
+    @extend_schema(
+        tags=['Users'],
+        summary="Disable MFA",
+        description="Disable multi-factor authentication for the current user and clear the stored secret.",
+        responses={
+            200: {
+                'type': 'object',
+                'properties': {
+                    'mfa_enabled': {'type': 'boolean', 'description': 'Always false after disabling'}
+                }
+            },
+            401: OpenApiTypes.OBJECT,
+        }
+    )
+    @action(detail=False, methods=['post'])
+    def mfa_disable(self, request):
+        """
+        Disable MFA for the current user and clear the secret.
+        """
+        user = request.user
+        user.mfa_secret = None
+        user.mfa_enabled = False
+        user.save(update_fields=['mfa_secret', 'mfa_enabled'])
+        return Response({'mfa_enabled': False}, status=status.HTTP_200_OK)
+
+    @extend_schema(
+        tags=['Users'],
+        summary="Upload Profile Picture",
+        description=(
+            "Upload a profile picture for the current authenticated user. "
+            "The image is uploaded to Cloudinary and automatically replaces any existing profile picture. "
+            "Maximum file size: 5MB. Accepted formats: JPEG, PNG, GIF, WebP, etc."
+        ),
+        request={
+            'multipart/form-data': {
+                'type': 'object',
+                'properties': {
+                    'profile_picture': {
+                        'type': 'string',
+                        'format': 'binary',
+                        'description': 'Image file to upload (max 5MB)'
+                    }
+                },
+                'required': ['profile_picture']
+            }
+        },
+        responses={
+            200: {
+                'type': 'object',
+                'properties': {
+                    'profile_picture': {
+                        'type': 'string',
+                        'description': 'Cloudinary public_id of the uploaded image'
+                    },
+                    'profile_picture_url': {
+                        'type': 'string',
+                        'format': 'uri',
+                        'description': 'URL to the profile picture with 50x50 transformation'
+                    }
+                }
+            },
+            400: {
+                'type': 'object',
+                'properties': {
+                    'detail': {'type': 'string'}
+                },
+                'description': 'Bad request - No file, invalid file type, or file too large'
+            },
+            401: OpenApiTypes.OBJECT,
+            503: {
+                'type': 'object',
+                'properties': {
+                    'detail': {'type': 'string'}
+                },
+                'description': 'Cloudinary is not configured'
+            },
+            500: {
+                'type': 'object',
+                'properties': {
+                    'detail': {'type': 'string'}
+                },
+                'description': 'Internal server error during upload'
+            }
+        }
+    )
+    @action(detail=False, methods=['post'])
+    def upload_profile_picture(self, request):
+        """
+        Upload profile picture for the current user.
+        Accepts an image file and uploads it to Cloudinary.
+        """
+        from academy_crm.cloudinary_service import get_cloudinary_service_or_none
+        from rest_framework.exceptions import APIException
+        
+        user = request.user
+        file = request.FILES.get('profile_picture')
+        
+        if not file:
+            return Response(
+                {'detail': 'No file provided. Please upload an image file.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Validate file type (images only)
+        if not file.content_type or not file.content_type.startswith('image/'):
+            return Response(
+                {'detail': 'Invalid file type. Please upload an image file.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Validate file size (max 5MB)
+        if file.size > 5 * 1024 * 1024:
+            return Response(
+                {'detail': 'File size exceeds maximum allowed size (5MB).'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        cloudinary_service = get_cloudinary_service_or_none()
+        if not cloudinary_service:
+            return Response(
+                {'detail': 'Cloudinary is not configured.'},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE
+            )
+        
+        try:
+            # Ensure file pointer is at the beginning
+            if hasattr(file, 'seek'):
+                file.seek(0)
+            elif hasattr(file, 'file') and hasattr(file.file, 'seek'):
+                file.file.seek(0)
+            
+            # Upload to Cloudinary with organization-based folder structure
+            # Format: org-{org_id}/profile-pictures or profile-pictures (if no org)
+            organization = getattr(user, "organization", None)
+            if organization:
+                folder = f"org-{organization.id}/profile-pictures"
+            else:
+                folder = "profile-pictures"
+            public_id = str(user.id)  # Use user ID as public_id
+            
+            uploaded = cloudinary_service.upload_file(
+                file_content=file.file if hasattr(file, 'file') else file,
+                folder=folder,
+                public_id=public_id,
+                resource_type="image",
+                overwrite=True,  # Overwrite existing profile picture
+            )
+            
+            # Update user profile picture
+            user.profile_picture = uploaded.public_id
+            user.save(update_fields=['profile_picture'])
+            
+            # Return the URL with transformation
+            profile_url = cloudinary_service.get_file_url(
+                uploaded.public_id,
+                transformation="w_50,h_50,c_fill,g_face",
+                resource_type="image"
+            )
+            
+            return Response({
+                'profile_picture': uploaded.public_id,
+                'profile_picture_url': profile_url
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            return Response(
+                {'detail': f'Failed to upload profile picture: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+@extend_schema(
+    tags=['Auth'],
+    summary="Login",
+    description="Obtain JWT access and refresh tokens by providing email and password.",
+)
+class CustomTokenObtainPairView(TokenObtainPairView):
+    """Custom token obtain view."""
+    serializer_class = CustomTokenObtainPairSerializer
+    permission_classes = [permissions.AllowAny]  # Explicitly allow unauthenticated access
+    throttle_classes = [LoginAnonThrottle, LoginUserThrottle]
+
+
+@extend_schema(
+    tags=['Auth'],
+    summary="Refresh token",
+    description="Obtain a new access token using a valid refresh token.",
+)
+class CustomTokenRefreshView(TokenRefreshView):
+    """Custom token refresh view with proper Swagger tag."""
+    pass
+
+
+@extend_schema(
+    request=TokenBlacklistRequestSerializer,
+    responses={
+        200: TokenBlacklistResponseSerializer,
+        400: OpenApiTypes.OBJECT,
+    },
+    tags=['Auth'],
+    summary="Logout user",
+    description=(
+        "Accepts a refresh token and blacklists it, effectively logging out the user. "
+        "The refresh token can no longer be used to obtain new access tokens."
+    ),
+)
+class CustomTokenBlacklistView(TokenBlacklistView):
+    """Custom token blacklist view for logout."""
+    permission_classes = [permissions.AllowAny]  # Allow authenticated users to logout
+    throttle_classes = [LogoutThrottle]
+    
+    def post(self, request, *args, **kwargs):
+        return super().post(request, *args, **kwargs)
+
+
+@api_view(['GET'])
+@permission_classes([permissions.AllowAny])
+@extend_schema(
+    responses={
+        200: {
+            'type': 'object',
+            'properties': {
+                'valid': {'type': 'boolean'},
+                'user': {'type': 'object'},
+            }
+        },
+        401: OpenApiTypes.OBJECT,
+    },
+    tags=['Auth'],
+    summary="Verify access token",
+    description=(
+        "Verifies if the provided access token in the Authorization header is valid and not expired. "
+        "Returns user information if the token is valid. Useful for frontend to check authentication state."
+    ),
+)
+def verify_token(request):
+    """Verify access token validity and return user info if valid."""
+    auth_header = request.META.get('HTTP_AUTHORIZATION', '')
+    
+    if not auth_header:
+        return Response(
+            {'valid': False, 'detail': 'No authorization header provided.'},
+            status=status.HTTP_401_UNAUTHORIZED
+        )
+    
+    # Handle malformed headers (e.g., "Bearer Bearer <token>" from Swagger UI)
+    # Remove all "Bearer " prefixes and extract the actual token
+    parts = auth_header.split()
+    if len(parts) < 2:
+        return Response(
+            {'valid': False, 'detail': 'Authorization header must contain two space-delimited values.'},
+            status=status.HTTP_401_UNAUTHORIZED
+        )
+    
+    # Find the actual token (last part after all "Bearer" prefixes)
+    token = None
+    for i, part in enumerate(parts):
+        if part.upper() == 'BEARER':
+            continue
+        # Found the token (first non-Bearer part)
+        token = ' '.join(parts[i:])  # Join remaining parts in case token has spaces (shouldn't, but safe)
+        break
+    
+    if not token:
+        return Response(
+            {'valid': False, 'detail': 'No token found in authorization header.'},
+            status=status.HTTP_401_UNAUTHORIZED
+        )
+    
+    try:
+        # Use JWT authentication to validate token
+        jwt_auth = JWTAuthentication()
+        validated_token = jwt_auth.get_validated_token(token)
+        user = jwt_auth.get_user(validated_token)
+        
+        # Serialize user data
+        user_serializer = UserSerializer(user)
+        
+        return Response({
+            'valid': True,
+            'user': user_serializer.data,
+        }, status=status.HTTP_200_OK)
+        
+    except (InvalidToken, TokenError) as e:
+        return Response(
+            {'valid': False, 'detail': 'Invalid or expired token.'},
+            status=status.HTTP_401_UNAUTHORIZED
+        )
+    except Exception as e:
+        return Response(
+            {'valid': False, 'detail': 'Token verification failed.'},
+            status=status.HTTP_401_UNAUTHORIZED
+        )
+
+
+@api_view(['POST'])
+@permission_classes([permissions.AllowAny])
+@extend_schema(
+    request=PasswordResetRequestSerializer,
+    responses={200: OpenApiTypes.OBJECT},
+    tags=['Auth'],
+    summary="Request password reset email",
+    description=(
+        "Accepts an email address and, if an account exists, sends a password "
+        "reset link to that address. Always returns a generic success message "
+        "to avoid leaking whether the email exists."
+    ),
+)
+def password_reset_request(request):
+    """Request password reset - sends email with reset link."""
+    # Apply basic throttling to password reset requests
+    for throttle in [PasswordResetAnonThrottle()]:
+        if not throttle.allow_request(request, view=None):
+            return Response(
+                {'detail': 'Request was throttled. Please try again later.'},
+                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            )
+
+    serializer = PasswordResetRequestSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    
+    email = serializer.validated_data['email']
+    
+    try:
+        user = User.objects.get(email=email)
+    except User.DoesNotExist:
+        # Don't reveal if user exists - return success anyway
+        return Response({
+            'message': 'If an account exists with this email, a password reset link has been sent.'
+        }, status=status.HTTP_200_OK)
+    
+    # Generate token
+    token = default_token_generator.make_token(user)
+    uid = urlsafe_base64_encode(force_bytes(user.pk))
+    
+    # Create reset link - combine uid and token
+    combined_token = f"{uid}.{token}"
+    
+    # Get frontend URL from settings or use request origin
+    frontend_url = getattr(settings, 'FRONTEND_URL', None)
+    if not frontend_url:
+        # Try to get from request origin (for development)
+        origin = request.META.get('HTTP_ORIGIN', '')
+        if origin:
+            frontend_url = origin
+        else:
+            # Fallback to request host
+            frontend_url = request.build_absolute_uri('/').rstrip('/')
+    
+    reset_link = f"{frontend_url}/reset-password?token={combined_token}"
+    
+    # Send email
+    try:
+        send_mail(
+            subject='Password Reset Request',
+            message=f'Click the following link to reset your password:\n\n{reset_link}\n\nThis link will expire in 24 hours.',
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[user.email],
+            fail_silently=False,
+        )
+    except Exception as e:
+        # Log error but don't reveal to user
+        return Response({
+            'message': 'If an account exists with this email, a password reset link has been sent.'
+        }, status=status.HTTP_200_OK)
+    
+    return Response({
+        'message': 'If an account exists with this email, a password reset link has been sent.'
+    }, status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+@permission_classes([permissions.AllowAny])
+@extend_schema(
+    request=PasswordResetConfirmSerializer,
+    responses={200: OpenApiTypes.OBJECT, 400: OpenApiTypes.OBJECT},
+    tags=['Auth'],
+    summary="Confirm password reset",
+    description=(
+        "Accepts a token (uid.token) and a new password. If the token is valid,"
+        " the user's password is updated."
+    ),
+)
+def password_reset_confirm(request):
+    """Confirm password reset with token."""
+    serializer = PasswordResetConfirmSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    
+    token = serializer.validated_data['token']
+    new_password = serializer.validated_data['password']
+    
+    try:
+        # Decode user ID from token
+        uid = force_str(urlsafe_base64_decode(token.split('.')[0]))
+        user = User.objects.get(pk=uid)
+        
+        # Verify token
+        token_part = token.split('.')[1] if '.' in token else token
+        if not default_token_generator.check_token(user, token_part):
+            return Response(
+                {'error': 'Invalid or expired token.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Set new password
+        user.set_password(new_password)
+        user.save()
+        
+        return Response({
+            'message': 'Password has been reset successfully.'
+        }, status=status.HTTP_200_OK)
+        
+    except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+        return Response(
+            {'error': 'Invalid or expired token.'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+
+# Student portal views
+class StudentPortalViewSet(viewsets.ViewSet):
+    """
+    ViewSet for student portal endpoints.
+    Returns data filtered by the current user (student=request.user).
+    Works for any authenticated user, but typically used by students.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+    
+    @extend_schema(
+        tags=['Users'],
+        summary="Get student enrollments",
+        description="Retrieve all enrollments for the current authenticated user (student).",
+        responses={
+            200: {
+                'type': 'array',
+                'items': {'type': 'object'}
+            },
+            401: OpenApiTypes.OBJECT,
+        }
+    )
+    @action(detail=False, methods=['get'])
+    def enrollments(self, request):
+        """Get student's enrollments."""
+        from admissions.models import Enrollment
+        from admissions.serializers import EnrollmentSerializer
+        enrollments = Enrollment.objects.filter(student=request.user).select_related(
+            'cohort', 'cohort__course', 'cohort__course__program', 'cohort__lecturer'
+        )
+        serializer = EnrollmentSerializer(enrollments, many=True, context={'request': request})
+        return Response(serializer.data)
+    
+    @extend_schema(
+        tags=['Users'],
+        summary="Get student attendance records",
+        description="Retrieve all attendance records for the current authenticated user (student).",
+        responses={
+            200: {
+                'type': 'array',
+                'items': {'type': 'object'}
+            },
+            401: OpenApiTypes.OBJECT,
+        }
+    )
+    @action(detail=False, methods=['get'])
+    def attendance(self, request):
+        """Get student's attendance records."""
+        from attendance.models import AttendanceRecord
+        from attendance.serializers import AttendanceRecordSerializer
+        attendance_records = AttendanceRecord.objects.filter(student=request.user).select_related(
+            'session', 'session__cohort', 'marked_by'
+        )
+        serializer = AttendanceRecordSerializer(attendance_records, many=True, context={'request': request})
+        return Response(serializer.data)
+    
+    @extend_schema(
+        tags=['Users'],
+        summary="Get student assessments",
+        description="Retrieve all published assessments for cohorts the current authenticated user (student) is enrolled in.",
+        responses={
+            200: {
+                'type': 'array',
+                'items': {'type': 'object'}
+            },
+            401: OpenApiTypes.OBJECT,
+        }
+    )
+    @action(detail=False, methods=['get'])
+    def assessments(self, request):
+        """Get student's assessments."""
+        from assessment.models import Assessment
+        from assessment.serializers import AssessmentSerializer
+        from admissions.models import Enrollment
+        # Get cohorts student is enrolled in
+        enrollments = Enrollment.objects.filter(student=request.user, status='ACTIVE')
+        cohort_ids = enrollments.values_list('cohort_id', flat=True)
+        assessments = Assessment.objects.filter(
+            cohort_id__in=cohort_ids, 
+            published=True
+        ).select_related('cohort', 'cohort__course', 'cohort__lecturer')
+        serializer = AssessmentSerializer(assessments, many=True, context={'request': request})
+        return Response(serializer.data)
+    
+    @extend_schema(
+        tags=['Users'],
+        summary="Get student invoices and payments",
+        description="Retrieve all invoices and payment records for the current authenticated user (student).",
+        responses={
+            200: {
+                'type': 'object',
+                'properties': {
+                    'invoices': {
+                        'type': 'array',
+                        'items': {'type': 'object'},
+                        'description': 'List of invoices for the student'
+                    },
+                    'payments': {
+                        'type': 'array',
+                        'items': {'type': 'object'},
+                        'description': 'List of payments made by the student'
+                    }
+                }
+            },
+            401: OpenApiTypes.OBJECT,
+        }
+    )
+    @action(detail=False, methods=['get'])
+    def payments(self, request):
+        """Get student's invoices and payments."""
+        from payments.models import Invoice, Payment
+        from payments.serializers import InvoiceSerializer, PaymentSerializer
+        
+        invoices = Invoice.objects.filter(enrollment__student=request.user).select_related(
+            'enrollment', 'enrollment__cohort', 'pricing', 'payment_plan'
+        )
+        payments = Payment.objects.filter(student=request.user).select_related(
+            'invoice', 'recorded_by'
+        )
+        
+        invoice_serializer = InvoiceSerializer(invoices, many=True, context={'request': request})
+        payment_serializer = PaymentSerializer(payments, many=True, context={'request': request})
+        
+        return Response({
+            'invoices': invoice_serializer.data,
+            'payments': payment_serializer.data,
+        })
+    
+    @extend_schema(
+        tags=['Users'],
+        summary="Get student outstanding balance",
+        description="Calculate and return the total outstanding balance for all unpaid invoices of the current authenticated user (student).",
+        responses={
+            200: {
+                'type': 'object',
+                'properties': {
+                    'total_outstanding': {
+                        'type': 'number',
+                        'format': 'decimal',
+                        'description': 'Total outstanding balance amount'
+                    },
+                    'invoice_count': {
+                        'type': 'integer',
+                        'description': 'Number of unpaid invoices'
+                    }
+                }
+            },
+            401: OpenApiTypes.OBJECT,
+        }
+    )
+    @action(detail=False, methods=['get'])
+    def outstanding_balance(self, request):
+        """Get total outstanding balance for student."""
+        from payments.models import Invoice
+        from payments.services.invoice_service import InvoiceService
+        
+        invoices = Invoice.objects.filter(
+            enrollment__student=request.user
+        ).exclude(status__in=['PAID', 'CANCELLED'])
+        
+        total_outstanding = sum(
+            InvoiceService.calculate_outstanding_amount(invoice) 
+            for invoice in invoices
+        )
+        
+        return Response({
+            'total_outstanding': total_outstanding,
+            'invoice_count': invoices.count(),
+        })
+    
+    @extend_schema(
+        tags=['Users'],
+        summary="Get student grades",
+        description="Retrieve all grades for the current authenticated user (student).",
+        responses={
+            200: {
+                'type': 'array',
+                'items': {'type': 'object'}
+            },
+            401: OpenApiTypes.OBJECT,
+        }
+    )
+    @action(detail=False, methods=['get'])
+    def grades(self, request):
+        """Get student's grades."""
+        from assessment.models import Grade
+        from assessment.serializers import GradeSerializer
+        grades = Grade.objects.filter(student=request.user).select_related(
+            'assessment', 'assessment__cohort', 'graded_by'
+        )
+        serializer = GradeSerializer(grades, many=True, context={'request': request})
+        return Response(serializer.data)
+    
+    @extend_schema(
+        tags=['Users'],
+        summary="Get student certificates",
+        description="Retrieve all certificates issued to the current authenticated user (student).",
+        responses={
+            200: {
+                'type': 'array',
+                'items': {'type': 'object'}
+            },
+            401: OpenApiTypes.OBJECT,
+        }
+    )
+    @action(detail=False, methods=['get'])
+    def certificates(self, request):
+        """Get student's certificates."""
+        from certificates.models import Certificate
+        from certificates.serializers import CertificateSerializer
+        certificates = Certificate.objects.filter(student=request.user).select_related(
+            'cohort', 'cohort__course', 'cohort__course__program'
+        )
+        serializer = CertificateSerializer(certificates, many=True, context={'request': request})
+        return Response(serializer.data)
