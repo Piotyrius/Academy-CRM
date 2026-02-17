@@ -5,15 +5,8 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 
-from academy_crm.render_guard import enforce_not_running_on_render
-
 # Load environment variables
 load_dotenv()
-
-# Immediately enforce that we are not running on Render.com. This is a hard
-# safety rail: any Render deployment that pulls this code will fail during
-# settings import, so the service cannot start.
-enforce_not_running_on_render()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
