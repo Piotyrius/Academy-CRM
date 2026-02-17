@@ -1,5 +1,0 @@
--r base.txt
-
-# Production-specific (if any)
-gunicorn==23.0.0
-whitenoise==6.8.2
